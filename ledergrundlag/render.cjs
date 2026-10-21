@@ -1,19 +1,21 @@
 // Renderer index.html frame-for-frame til MP4 (1920x1080, 30 fps).
-// Brug:  node render.cjs [output.mp4]
-//        node render.cjs --stills 3,12.5,40   (gemmer PNG-stillbilleder til gennemsyn)
+// Brug:  node render.cjs [--in side.html] [output.mp4]
+//        node render.cjs [--in side.html] --stills 3,12.5,40 [mappe]   (PNG-stillbilleder til gennemsyn)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
 
 const FPS = 30;
 const args = process.argv.slice(2);
+const inIdx = args.indexOf('--in');
+const input = inIdx >= 0 ? args.splice(inIdx, 2)[1] : 'index.html';
 const stillsIdx = args.indexOf('--stills');
 
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   page.on('pageerror', e => console.error('pageerror:', e.message));
-  await page.goto('file://' + path.join(__dirname, 'index.html') + '?capture=1', { waitUntil: 'domcontentloaded' });
+  await page.goto('file://' + path.resolve(__dirname, input) + '?capture=1', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__ready === true, null, { timeout: 30000 });
   const total = await page.evaluate(() => window.TOTAL);
 

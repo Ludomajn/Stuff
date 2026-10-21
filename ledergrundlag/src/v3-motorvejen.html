@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledergrundlag – Motorvejen</title>
+<style>
+  @font-face { font-family: "Overpass"; src: url(fonts/Overpass.woff2) format("woff2"); font-weight: 100 900; font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage {
+    width: 1920px; height: 1080px; flex: none; position: relative; overflow: hidden; background: #000; transform-origin: center;
+    font-family: "Overpass", "Helvetica Neue", Arial, sans-serif; color: #fff; -webkit-font-smoothing: antialiased;
+  }
+  canvas { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .sign {
+    position: absolute; left: 0; top: 0; box-sizing: border-box; background: #0E4FA0; color: #fff; border-radius: 26px;
+    padding: 40px 64px 34px; text-align: center; white-space: nowrap; line-height: 1.12; font-weight: 700;
+    box-shadow: inset 0 0 0 10px #0E4FA0, inset 0 0 0 17px #fff, 0 30px 70px rgba(0,0,0,.55);
+    will-change: transform, opacity;
+  }
+  .sign.y { background: #FFD21F; color: #111; box-shadow: inset 0 0 0 10px #FFD21F, inset 0 0 0 17px #111, 0 30px 70px rgba(0,0,0,.55); }
+  .l { display: block; }
+  .sm { font-size: 46px; font-weight: 400; }
+  .lg { font-size: 112px; font-weight: 900; letter-spacing: -.01em; }
+  .xl { font-size: 260px; font-weight: 900; line-height: 1; }
+  .hl { color: #FFD21F; }
+  .ins { position: relative; display: inline-block; width: 0; }
+  .patch {
+    position: absolute; background: #FFD21F; color: #111; font-weight: 900; padding: 12px 28px 2px; border-radius: 12px;
+    box-shadow: inset 0 0 0 6px #111, 0 10px 24px rgba(0,0,0,.4); white-space: nowrap;
+  }
+  .idea { font-size: 50px; font-weight: 900; padding: 22px 34px 14px; border-radius: 14px; }
+  .idea::after { content: ""; position: absolute; left: 50%; top: 100%; width: 14px; margin-left: -7px; height: 240px; background: linear-gradient(#9AA0A8, #50555C); }
+  #hud {
+    position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%); padding: 10px 30px 6px; border-radius: 999px;
+    background: rgba(0,0,0,.55); color: #fff; font-size: 34px; font-weight: 400; letter-spacing: .04em; white-space: nowrap;
+    font-variant-numeric: tabular-nums; border: 2px solid rgba(255,255,255,.18);
+  }
+  #hud b { font-weight: 900; font-size: 46px; color: #fff; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage"><canvas id="cv" width="1920" height="1080"></canvas><div id="layer" style="position:absolute;inset:0"></div><div id="hud"><b>90</b> km/t</div></div></div>
+<script src="engine.js"></script>
+<script>
+const { clamp, prog, lerp, eo, eio, eback, rng, mk, mix, rgba, G, W, H, TAU } = E;
+const stage = document.getElementById('stage'), cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const hud = document.getElementById('hud');
+const F = 900, CAMH = 1.4, HY = 500, ZR = 30;
+const st = { D: 0, v: 90, day: 0, last: null, scene: -1, D0: 0, camX: 0, vpx: 960 };
+
+// ---------- tegning ----------
+const SKY_T = ['#04060D', '#2A3A72', '#5C93D4'], SKY_H = ['#141C33', '#EE8A5E', '#FFD9A6'];
+const GROUND = ['#06080A', '#1C231A', '#3B5636'], ROAD = ['#111317', '#2B2D33', '#4B4E56'];
+const mix3 = (a, d) => d < .5 ? mix(a[0], a[1], d * 2) : mix(a[1], a[2], (d - .5) * 2);
+const STARS = (() => { const r = rng(2); return Array.from({ length: 170 }, () => ({ x: r() * W, y: r() * (HY - 30), s: .6 + r() * 1.5, a: .3 + r() * .7, tw: r() * 6 })); })();
+const CITY = (() => { const r = rng(8); return Array.from({ length: 70 }, () => ({ x: r() * W, y: HY - 2 - r() * 10, s: .8 + r() * 1.6, c: r() < .7 ? '#FFC873' : '#FFFFFF' })); })();
+const STREAKS = (() => { const r = rng(6); return Array.from({ length: 60 }, () => ({ a: r() * TAU, o: r(), len: 60 + r() * 180 })); })();
+
+function dot(x, y, r, col, a = 1) {
+  if (r <= 0 || a <= 0) return;
+  ctx.globalAlpha = clamp(a) * G.alpha; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+function glow(x, y, r, col, a) {
+  if (r <= 0 || a <= 0) return;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba(col, 1)); g.addColorStop(1, rgba(col, 0));
+  ctx.globalAlpha = clamp(a) * G.alpha; ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+}
+const P = (X, Y, z) => [st.vpx + F * (X - st.camX) / z, HY + F * (CAMH - Y) / z];
+function quad(X1, X2, z1, z2, col, a = 1) {
+  const [ax, ay] = P(X1, 0, z1), [bx] = P(X2, 0, z1), [cx, cy] = P(X2, 0, z2), [dx] = P(X1, 0, z2);
+  ctx.globalAlpha = a * G.alpha; ctx.fillStyle = col;
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, ay); ctx.lineTo(cx, cy); ctx.lineTo(dx, cy); ctx.closePath(); ctx.fill();
+}
+
+function world(sc, lt) {
+  const d = st.day;
+  // himmel
+  ctx.globalAlpha = G.alpha;
+  const sky = ctx.createLinearGradient(0, 0, 0, HY);
+  sky.addColorStop(0, mix3(SKY_T, d)); sky.addColorStop(1, mix3(SKY_H, d));
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, HY + 2);
+  const sa = clamp(1 - d * 2.2);
+  STARS.forEach(s => dot(s.x, s.y, s.s, '#FFFFFF', s.a * sa * (.7 + .3 * Math.sin(E.clock * 2 + s.tw))));
+  // sol
+  const sp = clamp((d - .35) / .65);
+  if (sp > 0) {
+    const sy = HY + 50 - 330 * eo(sp);
+    glow(st.vpx, sy, 620, '#FFB26B', .55 * sp);
+    dot(st.vpx, sy, 70, mix('#FF8A4C', '#FFF1C9', sp), clamp(sp * 2));
+  }
+  CITY.forEach(c => dot(c.x + (st.vpx - 960) * .3, c.y, c.s, c.c, .8 * clamp(1 - d * 1.8)));
+  // jord + dis ved horisonten
+  ctx.globalAlpha = G.alpha; ctx.fillStyle = mix3(GROUND, d); ctx.fillRect(0, HY, W, H - HY);
+  const haze = ctx.createLinearGradient(0, HY - 60, 0, HY + 90);
+  haze.addColorStop(0, rgba(mix3(SKY_H, d), 0)); haze.addColorStop(.45, rgba(mix3(SKY_H, d), .55)); haze.addColorStop(1, rgba(mix3(SKY_H, d), 0));
+  ctx.fillStyle = haze; ctx.fillRect(0, HY - 60, W, 150);
+  // vej
+  quad(-6.2, 6.2, 1.2, 5000, mix3(ROAD, d));
+  quad(-5.5, -5.3, 1.2, 5000, '#E9E6DC', .85); quad(5.3, 5.5, 1.2, 5000, '#E9E6DC', .85);
+  const off = st.D % 12;
+  for (let z = 12 - off - 12; z < 300; z += 12) {
+    if (z + 4 < 1.2) continue;
+    const z1 = Math.max(1.2, z), a = .9 * clamp(1.3 - z / 300);
+    quad(-1.85, -1.65, z1, z + 4, '#ECE8DE', a); quad(1.65, 1.85, z1, z + 4, '#ECE8DE', a);
+  }
+  // kantpæle med reflekser
+  const po = st.D % 40;
+  for (let z = 40 - po; z < 420; z += 40) {
+    if (z < 1.5) continue;
+    [-1, 1].forEach(side => {
+      const [x, yb] = P(side * 7.4, 0, z), [, yt] = P(side * 7.4, 1.1, z), w = Math.max(1.2, F * .14 / z);
+      ctx.globalAlpha = .85 * G.alpha * clamp(1.4 - z / 420); ctx.fillStyle = '#D9D9D4'; ctx.fillRect(x - w / 2, yt, w, yb - yt);
+      glow(x, yt + w, F * .45 / z, '#FFB547', .55 * (1 - d) * clamp(1.4 - z / 420));
+      dot(x, yt + w, Math.max(1, F * .06 / z), '#FFC266', clamp(1.4 - z / 420));
+    });
+  }
+  // forlygter
+  glow(st.vpx, 1060, 820, '#FFF2CC', .13 * (1 - d));
+  // fartstriber
+  const sa2 = clamp((st.v - 145) / 50);
+  if (sa2 > 0) STREAKS.forEach(s => {
+    const f = (s.o + E.clock * st.v / 120) % 1, r = 180 + f * f * 1300;
+    const x1 = st.vpx + Math.cos(s.a) * r, y1 = HY + Math.sin(s.a) * r * .7;
+    const x2 = st.vpx + Math.cos(s.a) * (r + s.len * (.3 + f)), y2 = HY + Math.sin(s.a) * (r + s.len * (.3 + f)) * .7;
+    ctx.globalAlpha = .45 * sa2 * f * G.alpha; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2 + f * 3;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  });
+  // tunnelsyn
+  if (sc.tunnel) {
+    const r = sc.tunnel(lt);
+    if (r < 1900) {
+      const g = ctx.createRadialGradient(st.vpx, 330, r, st.vpx, 330, r + 280);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.95)');
+      ctx.globalAlpha = G.alpha; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+  }
+  if (sc.flash) { ctx.globalAlpha = sc.flash(lt) * G.alpha; ctx.fillStyle = '#D52B1E'; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- skilte ----------
+// k = perspektivisk skala (1 = skiltet holder stille foran dig). Ud: skiltet flyver forbi over hovedet.
+function signK(lt, out, at = .2, dur = 1.8, z0 = 420) {
+  let z = lerp(z0, ZR, eo(prog(lt, at, dur)));
+  if (out > 0) z = lerp(ZR, 2.4, eio(out));
+  return ZR / z;
+}
+// Skiltet skaleres, så det fylder en fast ramme (mw × mh) når det holder stille.
+function place(el, k, sx = 960, sy = 300, extra = '', mw = 1640, mh = 500, cap = 1.75) {
+  if (!el._b) el._b = Math.min(cap, mw / el.offsetWidth, mh / el.offsetHeight);
+  const x = st.vpx + (sx - 960) * k, y = HY + (sy - HY) * k;
+  el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${k * el._b})` + extra;
+  el.style.opacity = clamp((k - .06) * 8);
+}
+function sign(el, cls, lines) {
+  const s = mk(el, 'sign ' + cls);
+  const ls = lines.map(([html, c]) => mk(s, 'l ' + c, '', html));
+  return { s, ls };
+}
+function lines(ls, lt, at, step = .35) {
+  ls.forEach((l, i) => { const p = eo(prog(lt, at + i * step, .5)); l.style.opacity = p; l.style.transform = `translateY(${(1 - p) * 18}px)`; });
+}
+function slapPatch(p, lt, at, base) {
+  const q = prog(lt, at, .35);
+  p.style.opacity = q > 0 ? 1 : 0;
+  p.style.transform = base + ` scale(${q > 0 ? lerp(1.8, 1, eo(q)) : 0})`;
+}
+
+// ---------- scener ----------
+const scenes = [];
+function S(def) { scenes.push(Object.assign({ fadeIn: 0, fadeOut: .7, customOut: true }, def)); }
+
+// 1 — Hej
+S({ dur: 4.5, fadeIn: 1.2, speed: 90, day: 0, build(el) {
+  return sign(el, '', [['Hej', 'xl']]);
+}, render(t, s, out) { place(s.s, signK(t, out, .3, 2.0)); } });
+
+// 2 — verdens (måske) bedste hold
+S({ dur: 9, speed: 110, day: 0, build(el) {
+  const o = sign(el, '', [['Jeg er glad og stolt over at have dig på', 'sm'],
+    ['Verdens<span class="ins"><span class="patch" style="font-size:58px">MÅSKE</span></span> bedste hold', 'lg']]);
+  o.ls[1].style.marginTop = '84px';
+  o.patch = o.s.querySelector('.patch'); o.patch.style.left = '0'; o.patch.style.bottom = '1.6em';
+  return o;
+}, render(t, s, out) {
+  place(s.s, signK(t, out)); lines(s.ls, t, 1.6, .6);
+  slapPatch(s.patch, t, 4.9, 'translateX(-50%) rotate(-8deg)');
+} });
+
+// 3 — hvad du er en del af
+S({ dur: 6, speed: 110, day: 0, build(el) {
+  return sign(el, '', [['Før vi når til salgstalen:', 'sm'], ['Hvad du er en del af', 'lg']]);
+}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.6, .6); } });
+
+// 4 — kaos: idé-skilte suser forbi
+const IDEAS = ['NY IDÉ!', 'HVAD NU HVIS…', 'PLAN B', 'PLAN C', 'PIVOT!', 'NYT PROJEKT?', 'VENT – BEDRE:', 'PRIORITET #1', 'NY PRIO #1',
+  'KL. 23:47', 'ÉN TING MERE', 'PLAN C.2', 'HVORFOR IKKE?', 'NU I DAG?', 'SPØRG KUNDEN!', '?!', 'LAD OS TESTE', 'IDÉ #47'];
+const IDEA_POS = (() => { const r = rng(12); return IDEAS.map((_, i) => ({ X: (i % 2 ? 1 : -1) * (8 + r() * 2), Y: 3.0 + r() * 1.4, z0: 70 + i * 26, rot: (r() - .5) * 8 })); })();
+S({ dur: 9, speed: 165, day: 0, build(el) {
+  const ideas = IDEAS.map(t => { const d = mk(el, 'sign y idea'); d.textContent = t; return d; });
+  const o = sign(el, '', [
+    ['<svg width="150" height="132" viewBox="0 0 150 132" style="vertical-align:-18px;margin-right:30px"><path d="M75 8 L142 124 L8 124 Z" fill="#fff" stroke="#D52B1E" stroke-width="16" stroke-linejoin="round"/><text x="75" y="112" text-anchor="middle" font-size="80" font-weight="900" fill="#111" font-family="Overpass">!</text></svg>Du vil opleve kaos', 'lg'],
+    ['Frustration over min struktur.', 'sm'], ['Og over mine <span class="hl">(voldsomt)</span> mange idéer.', 'sm']]);
+  o.ideas = ideas; return o;
+}, render(t, s, out) {
+  const sd = st.D - st.D0;
+  s.ideas.forEach((el, i) => {
+    const p = IDEA_POS[i], z = p.z0 - sd;
+    if (z < 2.6 || z > 330) { el.style.opacity = 0; return; }
+    const [x, y] = P(p.X, p.Y, z), k = F / (z * 60);
+    el.style.opacity = clamp((330 - z) / 60);
+    el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${k}) rotate(${p.rot}deg)`;
+  });
+  place(s.s, signK(t, out)); lines(s.ls, t, 1.6, .5);
+} });
+
+// 5 — 200 km/t
+S({ dur: 8, speed: t => t < .6 ? 165 : 200, day: 0, build(el) {
+  const o = sign(el, '', [['Indimellem føles det som at køre', 'sm'], ['200 km/t', 'lg'], ['på motorvejen for at følge med.', 'sm']]);
+  o.ls[1].style.fontSize = '150px';
+  o.r = mk(el, '', 'position:absolute;left:0;top:0;width:330px;height:330px;box-sizing:border-box;border-radius:50%;background:#fff;border:38px solid #D52B1E;display:flex;align-items:center;justify-content:center;color:#111;font-weight:900;font-size:118px;letter-spacing:-.03em;box-shadow:0 30px 70px rgba(0,0,0,.55);padding-top:14px;', '200');
+  return o;
+}, render(t, s, out) {
+  const shake = t > 2.5 ? Math.sin(t * 61) * 3 : 0;
+  place(s.s, signK(t, out), 760, 300, ` translate(0,${shake}px)`, 1150); lines(s.ls, t, 1.6, .5);
+  place(s.r, signK(t, out, .6), 1620, 300, ` translate(0,${shake}px)`, 1600, 500, 1.25);
+} });
+
+// 6 — hyperfokus / mangler det totalt
+S({ dur: 8.5, speed: 140, day: 0, tunnel(t) {
+  const f = eio(prog(t, .9, 2.0)), l = eio(prog(t, 4.3, .8));
+  return lerp(1900, 440, f * (1 - l));
+}, sway(t) { return Math.sin((t - 4.3) * 1.9) * 1.7 * eio(prog(t, 4.3, .8)); }, build(el) {
+  const o = sign(el, '', [['Du vil nok også opleve, at jeg har', 'sm'], ['Hyperfokus', 'lg'], ['– eller mangler det totalt.', 'sm hl']]);
+  o.ls[2].style.fontSize = '64px'; o.ls[2].style.fontWeight = '900';
+  return o;
+}, render(t, s, out) {
+  const l = eio(prog(t, 4.3, .8));
+  place(s.s, signK(t, out), 960, 300, ` rotate(${Math.sin(t * 2.3) * 3 * l}deg)`);
+  lines(s.ls.slice(0, 2), t, 1.6, .6);
+  const p = eo(prog(t, 4.6, .6)); s.ls[2].style.opacity = p;
+  s.ls[2].style.transform = `translateX(${Math.sin(t * 9) * 14 * l}px) scale(${lerp(1.4, 1, p)})`;
+} });
+
+// 7 — Jeg beklager (gult vejarbejdsskilt)
+S({ dur: 7, speed: 80, day: 0, build(el) {
+  return sign(el, 'y', [['Det ved du sikkert allerede.', 'sm'], ['Jeg beklager.', 'lg'], ['Jeg aner simpelthen ikke, hvordan jeg fixer det.', 'sm']]);
+}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .8); } });
+
+// 8 — MEN: fuld opbremsning
+S({ dur: 3.5, speed: 0, brake: 7, day: 0, fadeOut: .4, flash(t) { return .45 * Math.exp(-t * 2.2); }, build(el) {
+  const oct = 'polygon(29.3% 0,70.7% 0,100% 29.3%,100% 70.7%,70.7% 100%,29.3% 100%,0 70.7%,0 29.3%)';
+  const s = mk(el, '', `position:absolute;left:0;top:0;width:620px;height:620px;background:#fff;clip-path:${oct};`);
+  mk(s, '', `position:absolute;inset:16px;background:#D52B1E;clip-path:${oct};display:flex;align-items:center;justify-content:center;font-size:230px;font-weight:900;letter-spacing:-.02em;padding-top:30px;box-sizing:border-box;`, 'MEN');
+  return { s };
+}, render(t, s, out) {
+  const sh = Math.exp(-t * 4) * 18;
+  place(s.s, signK(t, out, 0, .45, 160), 960, 400, ` translate(${Math.sin(t * 70) * sh}px,${Math.cos(t * 55) * sh}px)`, 1600, 760, 1.2);
+} });
+
+// 9 — række hånden op (daggry begynder)
+S({ dur: 12, speed: 60, day: .3, build(el) {
+  return sign(el, '', [['Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'sm'], ['at du får et sted, hvor det føles helt naturligt', 'sm'],
+    ['at række hånden op og sige:', 'sm'], ['”Jeg har muligvis', 'lg'], ['verdens dårligste idé.”', 'lg']]);
+}, render(t, s, out) {
+  if (!s.styled) { s.styled = 1; s.ls.forEach(l => { if (l.classList.contains('sm')) l.style.fontSize = '42px'; else { l.style.fontSize = '96px'; l.style.color = '#FFD21F'; } }); s.ls[3].style.marginTop = '14px'; }
+  place(s.s, signK(t, out)); lines(s.ls.slice(0, 3), t, 1.6, .9); lines(s.ls.slice(3), t, 5.4, .6);
+} });
+
+// 10 a/b/c
+[['Du skal føle', 'begejstringen', 'når du lykkes.', .42], ['Du skal mærke', 'opbakningen', 'når du tør tage en chance.', .52],
+ ['Når det ikke føles sjovt:', 'dit hold er der for dig', 'Det skal du vide.', .6]].forEach(([a, b, c, day], i) => S({
+  dur: i === 2 ? 5.5 : 5, speed: 90, day, build(el) { return sign(el, '', [[a, 'sm'], [b, 'lg hl'], [c, 'sm']]); },
+  render(t, s, out) { place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.3, .45); },
+}));
+
+// 11 — en smule presset
+S({ dur: 12, speed: 125, day: .66, build(el) {
+  const o = sign(el, '', [['Du skal til gengæld også forberede dig på at blive', 'sm'], ['en smule presset.', 'lg'],
+    ['Du er mega god i dag. Men jeg har en naiv tiltro til,', 'sm'], ['at du faktisk kan blive <span class="hl">lidt</span> bedre.', 'sm']]);
+  o.ls[2].style.marginTop = '18px';
+  o.patch = mk(o.s, 'patch', 'right:-40px;top:-46px;font-size:76px;', '+ LIDT');
+  return o;
+}, render(t, s, out) {
+  place(s.s, signK(t, out)); lines(s.ls.slice(0, 2), t, 1.5, .6); lines(s.ls.slice(2), t, 4.8, 1.0);
+  slapPatch(s.patch, t, 8.4, 'rotate(7deg)');
+} });
+
+// 12 — uenig? sig det
+S({ dur: 7, speed: 90, day: .72, build(el) {
+  return sign(el, '', [['Uanset hvornår du læser det her:', 'sm'], ['Uenig?', 'lg hl'], ['Så please sig det til mig.', 'lg']]);
+}, render(t, s, out) { if (!s.s._b) s.ls[2].style.fontSize = '84px'; place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .8); } });
+
+// 13 — det eneste jeg kræver
+S({ dur: 4.5, speed: 70, day: .78, build(el) {
+  return sign(el, '', [['Det eneste jeg kræver', 'lg'], ['tilbage af dig er:', 'lg']]);
+}, render(t, s, out) { if (!s.s._b) s.ls.forEach(l => l.style.fontSize = '100px'); place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.2, .5); } });
+
+// 14 a/b/c — vognbaneskilte over vejen, ét ad gangen
+const LANES = [['Vær', 'åben', '&nbsp;'], ['Vær', 'nysgerrig', 'på andre'], ['Vær', 'modig', 'overfor dig selv']];
+const ARROW = '<svg width="70" height="78" viewBox="0 0 70 78" style="margin-top:14px"><path d="M35 4 V60 M10 40 L35 70 L60 40" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+[0, 1, 2].forEach(k => S({ dur: k === 2 ? 5 : 4.5, speed: 90, day: [.85, .9, .95][k], fadeOut: k === 2 ? .7 : 0, build(el) {
+  const g = mk(el, '', 'position:absolute;left:0;top:0;width:1860px;padding-top:30px;');
+  mk(g, '', 'position:absolute;left:-40px;right:-40px;top:0;height:30px;background:linear-gradient(#A3A9B2,#5E636B);border-radius:6px;box-shadow:0 20px 40px rgba(0,0,0,.4);');
+  const row = mk(g, '', 'display:flex;gap:24px;');
+  const signs = LANES.map(([a, b, c], i) => {
+    const s = mk(row, 'sign', 'position:relative;flex:1;padding:34px 20px 26px;');
+    const ls = [mk(s, 'l sm', 'font-size:56px', a), mk(s, 'l lg hl', 'font-size:104px', b), mk(s, 'l sm', 'font-size:52px', c), mk(s, 'l', '', ARROW)];
+    return { s, ls };
+  });
+  return { g, signs };
+}, render(t, s, out) {
+  place(s.g, k === 0 ? signK(t, out) : signK(99, out), 960, 330, '', 1880, 560);
+  s.signs.forEach((sg, i) => {
+    if (i < k) lines(sg.ls, 99, 0); else if (i > k) lines(sg.ls, -9, 0); else lines(sg.ls, t, k === 0 ? 1.6 : .5, .25);
+  });
+} }));
+
+// 15 — solopgang
+S({ dur: 9, speed: 110, day: 1, customOut: false, fadeOut: 2.2, build(el) {
+  return { a: mk(el, '', 'position:absolute;left:0;right:0;top:60px;text-align:center;font-size:80px;font-weight:400;letter-spacing:.1em;text-shadow:0 4px 30px rgba(0,0,0,.35);opacity:0', 'Åben · Nysgerrig · Modig') };
+}, render(t, s) { const p = eo(prog(t, 2.2, 1.4)); s.a.style.opacity = p; s.a.style.transform = `translateY(${(1 - p) * 30}px)`; } });
+
+// ---------- kørsel ----------
+E.run({ scenes, stage, ctx, layer: document.getElementById('layer'), before(i, lt, out, a) {
+  const sc = scenes[i];
+  let dt = st.last === null ? 0 : E.clock - st.last;
+  st.last = E.clock;
+  const tv = typeof sc.speed === 'function' ? sc.speed(lt) : sc.speed;
+  if (dt < 0 || dt > .5) { st.v = tv; st.day = sc.day; dt = 1 / 30; }   // spring i tid (stillbilleder/navigation)
+  dt = Math.min(dt, .1);
+  if (i !== st.scene) { st.scene = i; st.D0 = st.D; }
+  st.v += (tv - st.v) * clamp(dt * (sc.brake || 1.3));
+  st.day += (sc.day - st.day) * clamp(dt * .45);
+  st.D += st.v / 3.6 * dt;
+  st.camX = sc.sway ? sc.sway(lt) : 0;
+  st.vpx = 960 - st.camX * 45;
+  world(sc, lt);
+  hud.innerHTML = `<b>${Math.round(st.v)}</b> km/t`;
+  hud.style.opacity = a;
+} });
+</script>
+</body>
+</html>
