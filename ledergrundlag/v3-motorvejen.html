@@ -209,7 +209,7 @@ function world(sc, lt) {
   // sol
   const sp = clamp((d - .35) / .65);
   if (sp > 0) {
-    const sy = HY + 50 - 330 * eo(sp);
+    const sy = HY + 50 - 250 * eo(sp);
     glow(st.vpx, sy, 620, '#FFB26B', .55 * sp);
     dot(st.vpx, sy, 70, mix('#FF8A4C', '#FFF1C9', sp), clamp(sp * 2));
   }
@@ -442,13 +442,13 @@ const ARROW = '<svg width="70" height="78" viewBox="0 0 70 78" style="margin-top
 
 // 15 — solopgang
 S({ dur: 9, speed: 110, day: 1, customOut: false, fadeOut: 2.2, build(el) {
-  return { a: mk(el, '', 'position:absolute;left:0;right:0;top:60px;text-align:center;font-size:80px;font-weight:400;letter-spacing:.1em;text-shadow:0 4px 30px rgba(0,0,0,.35);opacity:0', 'Åben · Nysgerrig · Modig') };
+  return { a: mk(el, '', 'position:absolute;left:0;right:0;top:60px;text-align:center;font-size:80px;font-weight:400;letter-spacing:.1em;text-shadow:0 4px 30px rgba(0,0,0,.35);opacity:0', 'Åben<span style="margin:0 .45em 0 .35em">·</span>Nysgerrig<span style="margin:0 .45em 0 .35em">·</span>Modig') };
 }, render(t, s) { const p = eo(prog(t, 2.2, 1.4)); s.a.style.opacity = p; s.a.style.transform = `translateY(${(1 - p) * 30}px)`; } });
 
 // ---------- kørsel ----------
 E.run({ scenes, stage, ctx, layer: document.getElementById('layer'), before(i, lt, out, a) {
   const sc = scenes[i];
-  let dt = st.last === null ? 0 : E.clock - st.last;
+  let dt = st.last === null ? 1 : E.clock - st.last;
   st.last = E.clock;
   const tv = typeof sc.speed === 'function' ? sc.speed(lt) : sc.speed;
   if (dt < 0 || dt > .5) { st.v = tv; st.day = sc.day; dt = 1 / 30; }   // spring i tid (stillbilleder/navigation)
