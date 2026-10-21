@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mit ledergrundlag</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,800;0,900;1,500;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E0F13;
+    --ink: #F4EFE6;
+    --muted: #8B8F99;
+    --accent: #FF6A3D;
+    --accent2: #FFC857;
+  }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage {
+    width: 1920px; height: 1080px; flex: none; position: relative; overflow: hidden;
+    background: var(--bg); color: var(--ink); transform-origin: center;
+    font-family: "Inter Display", "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .w { display: inline-block; will-change: transform, opacity; }
+  .big { font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+  .mid { font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; text-wrap: balance; }
+  .big { text-wrap: balance; }
+  .muted { color: var(--muted); }
+  .acc { color: var(--accent); }
+  .it { color: var(--accent); font-style: italic; font-weight: 500; }
+  .bubble {
+    position: absolute; background: var(--ink); color: var(--bg); border-radius: 36px;
+    padding: 34px 54px; font-size: 60px; font-weight: 600; font-style: italic; letter-spacing: -0.02em;
+    white-space: nowrap; transform-origin: 50% 120%;
+  }
+  .bubble::after {
+    content: ""; position: absolute; left: 50%; bottom: -26px; margin-left: -26px;
+    border-left: 26px solid transparent; border-right: 26px solid transparent; border-top: 28px solid var(--ink);
+  }
+  #hint {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    font: 500 14px/1.4 -apple-system, "Inter", sans-serif; color: #fff; background: rgba(255,255,255,.08);
+    padding: 8px 14px; border-radius: 999px; transition: opacity .8s; pointer-events: none; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage"><canvas id="cv" width="1920" height="1080"></canvas></div></div>
+<div id="hint">→ / mellemrum / klik: næste · ← forrige · A: autoplay · F: fuldskærm</div>
+<script>
+const W = 1920, H = 1080, TAU = Math.PI * 2;
+const C = { bg: '#0E0F13', ink: '#F4EFE6', muted: '#8B8F99', accent: '#FF6A3D', accent2: '#FFC857' };
+const stage = document.getElementById('stage');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const G = { alpha: 1 };
+
+// ---------- helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, s, d) => clamp((t - s) / d);
+const lerp = (a, b, p) => a + (b - a) * p;
+const eo = x => 1 - Math.pow(1 - x, 3);
+const eio = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eback = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function dot(x, y, r, col, a = 1) {
+  if (r <= 0 || a <= 0) return;
+  ctx.globalAlpha = clamp(a) * G.alpha; ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+function glow(x, y, r, col, a) {
+  if (r <= 0 || a <= 0) return;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba(col, 1)); g.addColorStop(1, rgba(col, 0));
+  ctx.globalAlpha = clamp(a) * G.alpha; ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+}
+function line(x1, y1, x2, y2, col, w, a = 1) {
+  ctx.globalAlpha = clamp(a) * G.alpha; ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+function mk(p, cls = '', css = '', html = '') {
+  const d = document.createElement('div');
+  if (cls) d.className = cls; if (css) d.style.cssText = css; if (html) d.innerHTML = html;
+  p.appendChild(d); return d;
+}
+function span(p, text, cls = 'w') {
+  const s = document.createElement('span'); s.className = cls; s.textContent = text; p.appendChild(s); return s;
+}
+// "*ord*" = accent, "_ord_" = kursiv accent. Tegnsætning efter markøren er tilladt.
+function words(p, text, cls, css) {
+  const el = mk(p, cls, css); const spans = [];
+  text.split(' ').forEach((tok, i) => {
+    if (i) el.appendChild(document.createTextNode(' '));
+    const s = document.createElement('span'); s.className = 'w';
+    const m = tok.match(/^([*_])(.+?)\1(.*)$/);
+    if (m) { span(s, m[2], m[1] === '*' ? 'acc' : 'it'); if (m[3]) s.appendChild(document.createTextNode(m[3])); }
+    else s.textContent = tok;
+    el.appendChild(s); spans.push(s);
+  });
+  return { el, spans };
+}
+function reveal(spans, t, start, step = .07, d = .6, dy = 28) {
+  spans.forEach((s, i) => {
+    const p = eo(prog(t, start + i * step, d));
+    s.style.opacity = p;
+    s.style.transform = `translateY(${(1 - p) * dy}px)`;
+  });
+}
+function fadeUp(el, t, start, d = .7, dy = 40) {
+  const p = eo(prog(t, start, d));
+  el.style.opacity = p; el.style.transform = `translateY(${(1 - p) * dy}px)`;
+}
+
+// Holdet: samme 12 prikker gennem hele filmen
+const TEAM = (() => { const r = rng(11); return Array.from({ length: 12 }, (_, i) => ({
+  a: i / 12 * TAU + (r() - .5) * .25, k: .9 + r() * .2, r: 10 + r() * 4,
+  sx: r() * W, sy: r() < .5 ? -60 : H + 60
+})); })();
+function drawTeam(cx, cy, R, t, p = 1, rot = .06, alpha = .85) {
+  TEAM.forEach((d, i) => {
+    const pi = typeof p === 'function' ? p(i) : p;
+    const a = d.a + t * rot;
+    const tx = cx + Math.cos(a) * R * d.k, ty = cy + Math.sin(a) * R * d.k;
+    dot(lerp(d.sx, tx, pi), lerp(d.sy, ty, pi), d.r, C.ink, alpha * clamp(pi * 3));
+  });
+}
+
+// ---------- scener ----------
+const scenes = [];
+function S(def) { scenes.push(Object.assign({ fadeIn: .5, fadeOut: .5 }, def)); }
+
+// 1 — Hej
+S({ dur: 4.5, fadeIn: .2, build(el) {
+  const ln = mk(el, 'big', 'position:absolute;left:0;right:0;top:370px;text-align:center;font-size:300px;');
+  const letters = [...'Hej'].map(ch => span(ln, ch));
+  const d = span(ln, '', 'w'); d.style.cssText = 'width:62px;height:62px;border-radius:50%;background:var(--accent);margin-left:20px;';
+  return { letters, d };
+}, render(t, s) {
+  s.letters.forEach((l, i) => { const p = eo(prog(t, .15 + i * .12, .9)); l.style.opacity = p; l.style.transform = `translateY(${(1 - p) * 90}px)`; });
+  const p = prog(t, .85, .7);
+  s.d.style.transform = `scale(${(p > 0 ? eback(p) : 0) * (1 + .06 * Math.sin(Math.max(0, t - 1.6) * 3))})`;
+} });
+
+// 2 — verdens (måske) bedste hold
+S({ dur: 9, build(el) {
+  const top = words(el, 'Jeg er glad og stolt over at have dig på', 'mid muted', 'position:absolute;left:0;right:0;top:110px;text-align:center;font-size:54px;');
+  const ln = mk(el, 'big', 'position:absolute;left:0;right:0;top:810px;text-align:center;font-size:120px;white-space:nowrap;line-height:1.2;');
+  const a = span(ln, 'verdens ');
+  const m = span(ln, 'måske ', 'w it'); m.style.cssText = 'overflow:hidden;vertical-align:bottom;white-space:nowrap;';
+  const b = span(ln, 'bedste hold.');
+  return { top, a, m, b, mw: null };
+}, render(t, s) {
+  if (s.mw === null) { s.m.style.maxWidth = 'none'; s.mw = s.m.offsetWidth; }
+  reveal(s.top.spans, t, .3, .08);
+  [s.a, s.b].forEach(x => fadeUp(x, t, 2.6, .8));
+  s.m.style.maxWidth = (s.mw * eio(prog(t, 4.8, .9))) + 'px';
+  s.m.style.opacity = eo(prog(t, 5.2, .6));
+  const cx = 960, cy = 520;
+  drawTeam(cx, cy, 175, t, i => eio(prog(t, 1.0 + i * .12, 1.4)));
+  const p = prog(t, .2, .7);
+  glow(cx, cy, 90, C.accent, .25 * p);
+  dot(cx, cy, 24 * (p > 0 ? eback(p) : 0), C.accent);
+} });
+
+// 3 — hvad du er en del af
+S({ dur: 6, build(el) {
+  return {
+    a: words(el, 'Før vi når til salgstalen,', 'mid muted', 'position:absolute;left:160px;top:330px;font-size:56px;'),
+    b: words(el, 'er det på sin plads, at du forstår,', 'mid muted', 'position:absolute;left:160px;top:405px;font-size:56px;'),
+    c: words(el, 'hvad du er en del af.', 'big', 'position:absolute;left:160px;top:520px;font-size:140px;'),
+  };
+}, render(t, s) {
+  reveal(s.a.spans, t, .3, .09); reveal(s.b.spans, t, 1.1, .08); reveal(s.c.spans, t, 2.4, .1, .7, 50);
+} });
+
+// 4 — kaos og (voldsomt) mange idéer
+const IDEAS = ['Ny idé!', 'Hvad nu hvis…', 'Lad os prøve det!', 'Plan B', 'Plan C', 'Vent – endnu bedre:', 'Skal vi ikke bare…',
+  'Nyt projekt?', 'Hurtig tanke:', 'Glem det jeg sagde', 'Okay, hør her:', 'Vi kunne også…', 'Idé!!', 'Prioritet #1',
+  'NY prioritet #1', 'Brainstorm kl. 23:47', 'Pivot!', 'Det her bliver vildt', 'Én ting mere…', 'Whiteboard!', 'Ny plan',
+  'Plan C.2', 'Hvorfor ikke?', 'Lige en skør tanke', 'Kan vi nå det i dag?', 'Nyt format!', 'Spørg kunden!', '?!',
+  'Idé #31', 'Ny strategi', 'Lad os teste det', 'Hvad med…', 'Ups, én til', 'Store tanker'];
+S({ dur: 9, build(el) {
+  const r = rng(4); const cloud = mk(el, '', 'position:absolute;inset:0;');
+  const ideas = IDEAS.map((txt, i) => {
+    const sz = 22 + r() * 34; const accent = r() < .22;
+    const s = mk(cloud, '', `position:absolute;left:0;top:0;white-space:nowrap;font-size:${sz}px;font-weight:${accent ? 700 : 500};color:${accent ? C.accent : C.ink};`);
+    s.textContent = txt;
+    let x, y;
+    do { x = 90 + r() * 1740; y = 70 + r() * 940; } while ((x < 1450 && y > 290 && y < 760) || (x > 1500 && y < 160));
+    return { s, x, y, rot: (r() - .5) * 24, op: .22 + r() * .38, ph: r() * TAU,
+      at: 1.0 + 6.6 * Math.sqrt(i / IDEAS.length) };
+  });
+  const title = words(el, 'Du vil opleve kaos.', 'big', 'position:absolute;left:160px;top:350px;font-size:150px;text-shadow:0 0 60px #0E0F13,0 0 30px #0E0F13;');
+  const sub1 = words(el, 'Frustration over min struktur.', 'mid', 'position:absolute;left:160px;top:560px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
+  const sub2 = words(el, 'Og over mine _(voldsomt)_ mange idéer.', 'mid', 'position:absolute;left:160px;top:635px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
+  const ctr = mk(el, '', 'position:absolute;right:110px;top:80px;font-size:40px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;');
+  return { ideas, title, sub1, sub2, ctr };
+}, render(t, s) {
+  let n = 0;
+  s.ideas.forEach((d, i) => {
+    const p = prog(t, d.at, .45); if (p > 0) n++;
+    const sc = p > 0 ? eback(p) : 0;
+    const x = d.x + Math.sin(t * .6 + d.ph) * 14, y = d.y + Math.cos(t * .5 + d.ph) * 10;
+    d.s.style.opacity = d.op * clamp(p * 2);
+    d.s.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) rotate(${d.rot}deg) scale(${sc})`;
+  });
+  s.ctr.textContent = n ? `Idé nr. ${Math.round(n / s.ideas.length * 47)}` : '';
+  reveal(s.title.spans, t, .2, .1, .6, 40);
+  reveal(s.sub1.spans, t, 1.6, .08); reveal(s.sub2.spans, t, 2.6, .08);
+} });
+
+// 5 — 200 km/t
+const NS = 'http://www.w3.org/2000/svg';
+function svg(p, tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); p.appendChild(e); return e; }
+const speed = t => {
+  let v = 200 * eio(prog(t, .6, 3.2));
+  if (t > 3.4) v += Math.sin(t * 23) * 1.4 + Math.sin(t * 37) * .9;
+  return v;
+};
+const SPEEDLINES = (() => { const r = rng(5); return Array.from({ length: 70 }, () => ({ y: r() * H, x: r() * (W + 600), len: 80 + r() * 380, w: 1 + r() * 2.5, a: .05 + r() * .14 })); })();
+S({ dur: 8, build(el) {
+  const cx = 560, cy = 590, R = 320;
+  const sv = svg(el, 'svg', { width: W, height: H, style: 'position:absolute;inset:0;' });
+  const ang = v => (225 - v / 240 * 270) * Math.PI / 180;
+  const pt = (v, r) => [cx + Math.cos(ang(v)) * r, cy - Math.sin(ang(v)) * r];
+  const [x0, y0] = pt(0, R), [x1, y1] = pt(240, R);
+  const d = `M ${x0} ${y0} A ${R} ${R} 0 1 1 ${x1} ${y1}`;
+  const g = svg(sv, 'g', {});
+  svg(g, 'path', { d, fill: 'none', stroke: rgba(C.ink, .12), 'stroke-width': 22, 'stroke-linecap': 'round' });
+  const L = R * 1.5 * Math.PI;
+  const arc = svg(g, 'path', { d, fill: 'none', stroke: C.accent, 'stroke-width': 22, 'stroke-linecap': 'round', 'stroke-dasharray': L, 'stroke-dashoffset': L });
+  for (let v = 0; v <= 240; v += 10) {
+    const major = v % 40 === 0;
+    const [a1, b1] = pt(v, R - 40), [a2, b2] = pt(v, R - (major ? 78 : 58));
+    svg(g, 'line', { x1: a1, y1: b1, x2: a2, y2: b2, stroke: rgba(C.ink, major ? .7 : .3), 'stroke-width': major ? 4 : 2, 'stroke-linecap': 'round' });
+    if (major) { const [lx, ly] = pt(v, R - 120); const tx = svg(g, 'text', { x: lx, y: ly + 11, 'text-anchor': 'middle', fill: C.muted, 'font-size': 30, 'font-weight': 500 }); tx.textContent = v; }
+  }
+  const needle = svg(g, 'g', {});
+  svg(needle, 'line', { x1: cx, y1: cy + 30, x2: cx, y2: cy - R + 70, stroke: C.accent, 'stroke-width': 8, 'stroke-linecap': 'round' });
+  svg(g, 'circle', { cx, cy, r: 22, fill: C.ink });
+  const num = svg(g, 'text', { x: cx, y: cy + 175, 'text-anchor': 'middle', fill: C.ink, 'font-size': 110, 'font-weight': 800, 'letter-spacing': -3 });
+  const unit = svg(g, 'text', { x: cx, y: cy + 222, 'text-anchor': 'middle', fill: C.muted, 'font-size': 34, 'font-weight': 500 }); unit.textContent = 'km/t';
+  const l1 = words(el, 'Indimellem vil det føles som at køre', 'mid muted', 'position:absolute;left:1060px;top:330px;width:820px;font-size:52px;');
+  const l2 = mk(el, 'big acc', 'position:absolute;left:1052px;top:470px;font-size:190px;transform-origin:left center;', '200 km/t');
+  const l3 = words(el, 'på motorvejen for at følge med.', 'mid muted', 'position:absolute;left:1060px;top:700px;width:760px;font-size:52px;');
+  return { g, arc, L, needle, num, cx, cy, l1, l2, l3 };
+}, render(t, s) {
+  // fartstriber: position = integral af hastighed
+  let dist = 0; for (let k = 0, n = Math.ceil(t * 30); k < n; k++) dist += speed(k / 30) / 30;
+  SPEEDLINES.forEach(l => {
+    const x = ((l.x - dist * 34) % (W + 600) + (W + 600)) % (W + 600) - 300;
+    line(x, l.y, x + l.len * (.3 + speed(t) / 200), l.y, C.ink, l.w, l.a * clamp(speed(t) / 60));
+  });
+  const v = speed(t);
+  s.g.style.opacity = eo(prog(t, 0, .6));
+  s.needle.setAttribute('transform', `rotate(${-135 + v / 240 * 270} ${s.cx} ${s.cy})`);
+  s.arc.setAttribute('stroke-dashoffset', s.L * (1 - clamp(v / 240)));
+  s.num.textContent = Math.round(v);
+  reveal(s.l1.spans, t, .4, .07);
+  const p = prog(t, 2.0, .7); s.l2.style.opacity = eo(p); s.l2.style.transform = `scale(${p > 0 ? eback(p) : 0})`;
+  reveal(s.l3.spans, t, 3.4, .07);
+} });
+
+// 6 — hyperfokus / mangler det totalt
+const FIELD = (() => { const r = rng(9); return Array.from({ length: 46 }, () => ({ x: 1010 + r() * 820, y: 140 + r() * 800, r: 5 + r() * 4, f: 2 + r() * 6, ph: r() * TAU })); })();
+S({ dur: 8.5, build(el) {
+  const a = words(el, 'Du vil nok også opleve, at jeg har', 'mid muted', 'position:absolute;left:140px;top:320px;width:850px;font-size:50px;');
+  const b = words(el, 'hyperfokus.', 'big', 'position:absolute;left:140px;top:400px;font-size:150px;');
+  const c = mk(el, 'big acc', 'position:absolute;left:140px;top:600px;font-size:78px;white-space:nowrap;');
+  const r = rng(3);
+  const letters = [...'– eller mangler det totalt.'].map(ch => { const s = span(c, ch === ' ' ? ' ' : ch); s.dx = (r() - .5) * 160; s.dy = (r() - .5) * 160; s.rot = (r() - .5) * 60; return s; });
+  return { a, b, letters };
+}, render(t, s) {
+  reveal(s.a.spans, t, .3, .07); reveal(s.b.spans, t, 1.0, .1, .7, 40);
+  const focus = eio(prog(t, .8, 2.5)), lose = eio(prog(t, 4.3, .8));
+  const fx = 1420, fy = 540;
+  // spotlight
+  glow(fx, fy, lerp(520, 170, focus), C.accent2, .30 * focus * (1 - lose));
+  // spredte lys
+  for (let k = 0; k < 7; k++) {
+    const x = 1420 + 400 * Math.sin(t * (1.1 + k * .23) + k * 1.7), y = 540 + 360 * Math.sin(t * (1.5 + k * .19) + k * 2.9);
+    glow(x, y, 110, C.accent2, .22 * lose);
+  }
+  FIELD.forEach((d, i) => {
+    const flick = .35 + .65 * Math.abs(Math.sin(t * d.f + d.ph));
+    const base = lerp(.5, .07, focus);
+    dot(d.x, d.y, d.r, C.ink, lerp(base, .5 * flick, lose) * eo(prog(t, 0, .6)));
+  });
+  dot(fx, fy, lerp(9, 18, focus * (1 - lose)), focus * (1 - lose) > .1 ? C.accent : C.ink, Math.max(.5, focus * (1 - lose)));
+  s.letters.forEach((l, i) => {
+    const p = eo(prog(t, 4.5 + i * .02, .9));
+    l.style.opacity = clamp(p * 1.5);
+    l.style.transform = `translate(${l.dx * (1 - p)}px,${l.dy * (1 - p)}px) rotate(${l.rot * (1 - p)}deg)`;
+  });
+} });
+
+// 7 — Jeg beklager
+S({ dur: 7, build(el) {
+  return {
+    a: words(el, 'Det ved du sikkert allerede.', 'mid muted', 'position:absolute;left:0;right:0;top:330px;text-align:center;font-size:52px;'),
+    b: words(el, 'Jeg beklager.', 'big', 'position:absolute;left:0;right:0;top:420px;text-align:center;font-size:160px;'),
+    c: words(el, 'Jeg aner simpelthen ikke, hvordan jeg fixer det.', 'mid', 'position:absolute;left:0;right:0;top:640px;text-align:center;font-size:52px;'),
+  };
+}, render(t, s) {
+  reveal(s.a.spans, t, .3, .08); reveal(s.b.spans, t, 1.4, .15, .8, 40); reveal(s.c.spans, t, 3.0, .08);
+} });
+
+// 8 — MEN
+S({ dur: 3.5, fadeIn: 0, fadeOut: 0, build(el) {
+  el.style.background = 'var(--accent)';
+  const m = mk(el, '', 'position:absolute;left:0;right:0;top:250px;text-align:center;font-size:520px;font-weight:900;letter-spacing:-0.05em;line-height:1;color:var(--bg);', 'MEN');
+  return { m };
+}, render(t, s) {
+  const p = eo(prog(t, 0, .35));
+  s.m.style.transform = `scale(${lerp(1.25, 1, p)})`; s.m.style.opacity = p;
+} });
+
+// 9 — række hånden op
+S({ dur: 12, build(el) {
+  const top = words(el, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du får et sted, hvor det føles helt naturligt at række hånden op og sige:',
+    'mid muted', 'position:absolute;left:210px;right:210px;top:110px;text-align:center;font-size:46px;');
+  const bub = mk(el, 'bubble', 'left:960px;top:440px;', '”Jeg har muligvis verdens dårligste idé.”');
+  return { top, bub };
+}, render(t, s) {
+  reveal(s.top.spans, t, .3, .1, .5, 20);
+  const n = 9, gap = 120, y0 = 830;
+  const rise = prog(t, 4.0, .8), up = rise > 0 ? eback(rise) : 0;
+  const bp = prog(t, 4.9, .6);
+  for (let i = 0; i < n; i++) {
+    const x = 960 + (i - 4) * gap, on = eo(prog(t, .2 + i * .06, .6));
+    if (i === 4) {
+      const y = lerp(y0, 700, up);
+      glow(x, y, 90, C.accent, .3 * up);
+      dot(x, y, 24 * on, C.accent);
+    } else {
+      const cheer = eo(prog(t, 7.0 + Math.abs(i - 4) * .12, .5));
+      const bounce = Math.max(0, Math.sin((t - 7.0 - Math.abs(i - 4) * .12) * 6)) * 14 * cheer * clamp(9.5 - t);
+      dot(x, y0 - bounce, 16, C.ink, .8 * on);
+    }
+  }
+  s.bub.style.opacity = eo(bp);
+  s.bub.style.transform = `translateX(-50%) scale(${bp > 0 ? eback(bp) : 0})`;
+} });
+
+// 10a — begejstring
+const CONFETTI = (() => { const r = rng(21); return Array.from({ length: 90 }, () => ({ a: r() * TAU, v: 300 + r() * 650, r: 4 + r() * 7, c: [C.accent, C.accent2, C.ink][Math.floor(r() * 3)] })); })();
+S({ dur: 5, build(el) {
+  return { a: words(el, 'Du skal føle *begejstringen,* når du lykkes.', 'big', 'position:absolute;left:0;right:0;top:200px;text-align:center;font-size:96px;') };
+}, render(t, s) {
+  reveal(s.a.spans, t, .2, .09, .6, 30);
+  const cx = 960, cy = 700, b = t - 1.5;
+  const pop = b > 0 ? 1 + .45 * Math.exp(-b * 5) * Math.cos(b * 18) : eo(prog(t, 0, .6));
+  if (b > 0) CONFETTI.forEach(p => {
+    const x = cx + Math.cos(p.a) * p.v * (1 - Math.exp(-b * 2.2)) / 2.2 * 1.3;
+    const y = cy + Math.sin(p.a) * p.v * (1 - Math.exp(-b * 2.2)) / 2.2 * 1.3 + 160 * b * b;
+    dot(x, y, p.r, p.c, clamp(1.6 - b * .45));
+  });
+  glow(cx, cy, 140, C.accent, b > 0 ? .5 * Math.exp(-b * 1.5) + .15 : .15);
+  dot(cx, cy, 28 * pop, C.accent);
+} });
+
+// 10b — opbakning når du tør
+S({ dur: 5, build(el) {
+  return { a: words(el, 'Du skal mærke *opbakningen,* når du tør tage en chance.', 'big', 'position:absolute;left:180px;right:180px;top:170px;text-align:center;font-size:96px;') };
+}, render(t, s) {
+  reveal(s.a.spans, t, .2, .08, .6, 30);
+  const gy = 760, ap = eo(prog(t, 0, .6));
+  line(360, gy, 860, gy, C.ink, 4, .35 * ap); line(1060, gy, 1560, gy, C.ink, 4, .35 * ap);
+  const j = eio(prog(t, 2.0, 1.0));
+  const x = lerp(810, 1120, j), y = gy - 28 - Math.sin(j * Math.PI) * 190;
+  glow(x, y, 90, C.accent, .25);
+  dot(x, y, 28, C.accent, ap);
+  for (let i = 0; i < 5; i++) {
+    const push = eo(prog(t, 2.0 + i * .08, .8));
+    const tx = lerp(430 + i * 75, 520 + i * 75, push);
+    const hop = Math.max(0, Math.sin((t - 2.0 - i * .08) * 7)) * 18 * clamp(4 - t) * push;
+    dot(tx, gy - 18 - hop, 15, C.ink, .8 * ap);
+  }
+} });
+
+// 10c — dit hold er der for dig
+S({ dur: 5.5, build(el) {
+  return { a: words(el, 'Og når det ikke føles sjovt, skal du vide, at *dit\u00A0hold* er der for dig.', 'big', 'position:absolute;left:180px;right:180px;top:150px;text-align:center;font-size:88px;') };
+}, render(t, s) {
+  reveal(s.a.spans, t, .2, .08, .6, 30);
+  const cx = 960, cy = 730, ap = eo(prog(t, 0, .6));
+  const close = eio(prog(t, 2.0, 1.6));
+  const R = lerp(420, 110, close);
+  TEAM.forEach(d => {
+    const a = d.a + t * .08;
+    dot(cx + Math.cos(a) * R * d.k * 1.6, cy + Math.sin(a) * R * d.k * .55, d.r + 2, C.ink, .8 * ap);
+  });
+  const warm = eo(prog(t, 3.0, 1.2));
+  glow(cx, cy, 120, C.accent, .35 * warm);
+  dot(cx, cy, lerp(18, 26, warm), warm > .02 ? C.accent : C.muted, lerp(.6, 1, warm) * ap);
+} });
+
+// 11 — en smule presset / lidt bedre
+S({ dur: 12, build(el) {
+  const a = words(el, 'Du skal til gengæld også forberede dig på at blive', 'mid muted', 'position:absolute;left:140px;top:170px;width:960px;font-size:50px;');
+  const b = words(el, 'en smule presset.', 'big', 'position:absolute;left:140px;top:310px;font-size:128px;');
+  const c = words(el, 'Du er helt sikkert mega god i dag. Men jeg har en naiv tiltro til, at du faktisk kan blive _lidt_ bedre.', 'mid', 'position:absolute;left:140px;top:560px;width:920px;font-size:52px;');
+  const base = 900, x = 1300, w = 300;
+  const bar = mk(el, '', `position:absolute;left:${x}px;top:0;width:${w}px;height:1px;background:var(--ink);border-radius:10px 10px 0 0;transform-origin:bottom;`);
+  const plus = mk(el, '', `position:absolute;left:${x}px;width:${w}px;height:1px;background:var(--accent);border-radius:10px 10px 0 0;transform-origin:bottom;`);
+  const dash = mk(el, '', `position:absolute;left:${x - 4}px;width:${w}px;height:${100}px;border:4px dashed var(--accent);border-radius:12px 12px 0 0;border-bottom:none;`);
+  const lab1 = mk(el, 'mid', `position:absolute;left:${x}px;width:${w}px;text-align:center;font-size:38px;color:var(--bg);font-weight:700;`, 'Mega god i dag');
+  const lab2 = mk(el, 'big acc', `position:absolute;left:${x + w + 30}px;font-size:56px;`, '+ lidt');
+  const lab0 = mk(el, 'mid muted', `position:absolute;left:${x}px;top:${base + 20}px;width:${w}px;text-align:center;font-size:34px;`, 'Dig');
+  const baseL = mk(el, '', `position:absolute;left:${x - 80}px;top:${base}px;width:${w + 160}px;height:3px;background:${rgba(C.ink, .3)};`);
+  return { a, b, c, bar, plus, dash, lab0, lab1, lab2, baseL, base };
+}, render(t, s) {
+  reveal(s.a.spans, t, .3, .06); reveal(s.b.spans, t, 1.2, .12, .7, 40);
+  const hb = 470 * eio(prog(t, 2.8, 1.4));
+  s.bar.style.top = (s.base - hb) + 'px'; s.bar.style.height = hb + 'px';
+  s.lab1.style.top = (s.base - hb + 30) + 'px'; s.lab1.style.opacity = eo(prog(t, 3.8, .5));
+  s.lab0.style.opacity = s.baseL.style.opacity = eo(prog(t, 2.6, .5));
+  reveal(s.c.spans, t, 4.4, .07, .5, 20);
+  const top = s.base - 470;
+  s.dash.style.top = (top - 100) + 'px'; s.dash.style.opacity = eo(prog(t, 7.6, .5)) * (1 - eo(prog(t, 9.0, .6)) * .6);
+  const hp = 100 * eio(prog(t, 8.2, 1.2));
+  s.plus.style.top = (top - hp) + 'px'; s.plus.style.height = hp + 'px';
+  s.lab2.style.top = (top - 100 + 14) + 'px'; fadeUp(s.lab2, t, 8.6, .6, 20);
+} });
+
+// 12 — sig det til mig
+S({ dur: 7, build(el) {
+  return {
+    a: words(el, 'Uanset hvornår du læser det her.', 'mid muted', 'position:absolute;left:0;right:0;top:300px;text-align:center;font-size:52px;'),
+    b: words(el, 'Og hvis du er uenig,', 'big', 'position:absolute;left:0;right:0;top:400px;text-align:center;font-size:120px;'),
+    c: words(el, 'så please sig det til mig.', 'big acc', 'position:absolute;left:0;right:0;top:540px;text-align:center;font-size:120px;'),
+  };
+}, render(t, s) {
+  reveal(s.a.spans, t, .3, .08); reveal(s.b.spans, t, 1.6, .1, .6, 30); reveal(s.c.spans, t, 3.0, .1, .6, 30);
+} });
+
+// 13 — det eneste jeg kræver
+S({ dur: 4.5, build(el) {
+  return { a: words(el, 'Det eneste jeg kræver tilbage af dig er:', 'big', 'position:absolute;left:200px;right:200px;top:390px;text-align:center;font-size:110px;') };
+}, render(t, s) { reveal(s.a.spans, t, .3, .1, .6, 30); } });
+
+// 14 a/b/c — Vær åben, nysgerrig, modig (bygges op over tre scener, så du kan styre tempoet live)
+const VAER = ['Vær *åben.*', 'Vær *nysgerrig* på andre.', 'Vær *modig* overfor dig selv.'];
+function vaer(k) {
+  S({ dur: k === 2 ? 5 : 4.5, fadeIn: k ? 0 : .5, fadeOut: k < 2 ? 0 : .6, build(el) {
+    return { lines: VAER.slice(0, k + 1).map((txt, i) => {
+      const d = mk(el, '', `position:absolute;left:130px;top:${300 + i * 170 + 42}px;width:36px;height:36px;border-radius:50%;background:var(--accent);`);
+      return { d, w: words(el, txt, 'big', `position:absolute;left:210px;top:${300 + i * 170}px;font-size:112px;white-space:nowrap;`) };
+    }) };
+  }, render(t, s) {
+    s.lines.forEach((l, i) => {
+      if (i < k) { reveal(l.w.spans, 99, 0); l.d.style.transform = 'scale(1)'; return; }
+      reveal(l.w.spans, t, .5, .12, .7, 40);
+      const p = prog(t, .2, .6); l.d.style.transform = `scale(${p > 0 ? eback(p) : 0})`;
+    });
+  } });
+}
+vaer(0); vaer(1); vaer(2);
+
+// 15 — slutbillede
+S({ dur: 8, fadeOut: 1.8, build(el) {
+  return { a: mk(el, '', 'position:absolute;left:0;right:0;top:790px;text-align:center;font-size:64px;font-weight:300;letter-spacing:0.12em;',
+    'Åben <span class="acc">·</span> Nysgerrig <span class="acc">·</span> Modig') };
+}, render(t, s) {
+  const cx = 960, cy = 450;
+  drawTeam(cx, cy, 200, t, i => eio(prog(t, .2 + i * .07, 1.4)), .05, .85);
+  const p = prog(t, .1, .8);
+  glow(cx, cy, 130, C.accent, .3 * eo(p));
+  dot(cx, cy, 30 * (p > 0 ? eback(p) : 0), C.accent);
+  fadeUp(s.a, t, 1.8, 1.0, 30);
+} });
+
+// ---------- motor ----------
+let starts = [], TOTAL = 0;
+scenes.forEach(sc => { starts.push(TOTAL); TOTAL += sc.dur; });
+window.TOTAL = TOTAL;
+let shown = -1;
+function show(i) {
+  if (shown === i) return;
+  scenes.forEach((sc, k) => sc.el.style.display = k === i ? 'block' : 'none');
+  shown = i;
+}
+function draw(i, lt, alpha) {
+  show(i);
+  const sc = scenes[i];
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(0, 0, W, H);
+  G.alpha = alpha; sc.el.style.opacity = alpha;
+  sc.render(lt, sc.s);
+}
+function sceneAlpha(sc, lt, withOut) {
+  let a = sc.fadeIn ? clamp(lt / sc.fadeIn) : 1;
+  if (withOut && sc.fadeOut) a *= clamp((sc.dur - lt) / sc.fadeOut);
+  return a;
+}
+// Deterministisk: bruges til video-render
+window.renderAt = function (t) {
+  let i = scenes.length - 1;
+  while (i > 0 && starts[i] > t) i--;
+  const lt = t - starts[i];
+  draw(i, lt, sceneAlpha(scenes[i], lt, true));
+};
+
+const capture = new URLSearchParams(location.search).has('capture');
+function fit() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.transform = capture ? 'none' : `scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+document.fonts.ready.then(() => {
+  scenes.forEach(sc => { sc.el = mk(stage, 'scene'); sc.s = sc.build(sc.el); });
+  window.__ready = true;
+  if (capture) { document.getElementById('hint').remove(); return; }
+  live();
+});
+
+// Live-præsentation: hver scene spiller og holder sit slutbillede, til du går videre
+function live() {
+  const hint = document.getElementById('hint');
+  setTimeout(() => hint.style.opacity = 0, 5000);
+  let idx = 0, t0 = performance.now(), leaving = null, auto = false;
+  const go = k => { idx = clamp(k, 0, scenes.length - 1); t0 = performance.now(); leaving = null; };
+  const next = () => {
+    if (leaving !== null) return go(idx + 1);
+    if (idx >= scenes.length - 1) return;
+    const sc = scenes[idx];
+    if (sc.fadeOut) leaving = performance.now(); else go(idx + 1);
+  };
+  addEventListener('keydown', e => {
+    if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'a' || e.key === 'A') { auto = !auto; hint.textContent = auto ? 'Autoplay: til' : 'Autoplay: fra'; hint.style.opacity = 1; setTimeout(() => hint.style.opacity = 0, 1500); }
+    else if (e.key === 'f' || e.key === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  });
+  addEventListener('click', next);
+  (function frame(now) {
+    const sc = scenes[idx], lt = (now - t0) / 1000;
+    if (auto && leaving === null && lt >= sc.dur - sc.fadeOut) next();
+    let a = sceneAlpha(sc, lt, false);
+    if (leaving !== null) {
+      const lp = (now - leaving) / 1000 / sc.fadeOut;
+      if (lp >= 1) { go(idx + 1); return requestAnimationFrame(frame); }
+      a *= 1 - lp;
+    }
+    draw(idx, lt, a);
+    requestAnimationFrame(frame);
+  })(performance.now());
+}
+</script>
+</body>
+</html>
