@@ -278,10 +278,16 @@ function px(el, html, css, cls = '') { return mk(el, 'px ' + cls, css, html); }
 function pop(el, T, at, d = .3) { const p = prog(T, at, d); el.style.opacity = p > 0 ? 1 : 0; el.style.transform = `scale(${p > 0 ? eback(p) : .01})`; }
 function blink(el, T, at, rate = 3) { el.style.opacity = T >= at && Math.sin((T - at) * rate * TAU) > -.2 ? 1 : 0; }
 function type(el, T, at, to, full) { const n = Math.round(full.length * clamp((T - at) / (to - at))); el.textContent = full.slice(0, n); el.style.opacity = n ? 1 : 0; }
-function say(T, text, at, to) {
+// keys: [[tid, 'ord der starter her' | '$' (slut)], ...] – følger stemmens afsnit
+function say(T, text, keys) {
   if (!text) { dlg.style.display = 'none'; return; }
-  dlg.style.display = T >= at - .3 ? 'block' : 'none'; dlg.style.opacity = E.G.alpha;
-  const n = Math.round(text.length * clamp((T - at) / (to - at)));
+  const pts = keys.map(([t, m]) => [t, m === '$' ? text.length : text.indexOf(m)]);
+  dlg.style.display = T >= pts[0][0] - .3 ? 'block' : 'none'; dlg.style.opacity = E.G.alpha;
+  let n = T >= pts[pts.length - 1][0] ? text.length : 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [t0, c0] = pts[i], [t1, c1] = pts[i + 1];
+    if (T >= t0 && T < t1) { n = Math.round(lerp(c0, c1, (T - t0) / (t1 - t0))); break; }
+  }
   dlgTxt.innerHTML = '';
   dlgTxt.appendChild(document.createTextNode(text.slice(0, n)));
   if (n < text.length || Math.sin(T * 6) > 0) mk(dlgTxt, 'cur');
@@ -327,7 +333,7 @@ S(1.9, { hud: true, talk: true, build(el) {
   spr(['PPPPP', '.PPP.', '..P..'], 235, 136, { P: C.p }, 2);
   pop(s.v, T, 4.5); pop(s.m, T, 5.62, .35); if (T > 6.2) blink(s.m, T, 6.2, 2); pop(s.b, T, 7.06);
   pop(s.p1, T, 2.4);
-  say(T, T2, 2.09, 9.8);
+  say(T, T2, [[2.09, 'Jeg'], [5.23, 'måske'], [5.62, 'måske'], [6.69, 'bedste'], [7.06, 'bedste'], [9.86, '$']]);
 } });
 
 // 3 — spillende træner
@@ -339,7 +345,7 @@ S(10.4, { hud: true, talk: true, build(el) {
   person(430, TR, { dy: y });
   if (T > 11.75 && T < 12.3) { const d = (T - 11.75) * 30; rect(410 - d, GY - 4, 6, 4, C.w); rect(444 + d, GY - 4, 6, 4, C.w); fx.shake = 1; }
   blink(s.ban, T, 10.7, 2.5); pop(s.lab, T, 12.0);
-  say(T, 'Jeg er spillende træner på holdet!', 10.74, 13.4);
+  say(T, 'Jeg er spillende træner på holdet!', [[10.74, 'Jeg'], [13.61, '$']]);
 } });
 
 // 4 — ærlig
@@ -348,7 +354,7 @@ draw(T, s) {
   sky('#2C1C5C'); stars(T);
   spr(COACH, 140, 30, TR, 12);
   pop(s.ex, T, 15.3);
-  say(T, 'Og jeg vil gerne starte med at være ærlig.', 15.18, 17.2);
+  say(T, 'Og jeg vil gerne starte med at være ærlig.', [[15.18, 'Og'], [16.12, 'starte'], [16.38, 'starte'], [17.22, '$']]);
 } });
 
 // 5 — WORLD 1-1: KAOS
@@ -370,7 +376,7 @@ draw(T, s) {
     person(120 + Math.sin(T * 1.7) * 80, DU, { pose: MAN_UP, dy: -j });
     fx.shake = T > 22.4 ? .6 : 0;
   }
-  say(T, 'Du vil opleve kaos og vil blive frustreret over min manglende struktur, samt mine mange idéer.', 18.07, 24.6);
+  say(T, 'Du vil opleve kaos og vil blive frustreret over min manglende struktur, samt mine mange idéer.', [[18.07, 'Du'], [21.21, 'over'], [21.95, 'over'], [22.21, 'min'], [22.45, 'min'], [23.2, 'struktur'], [23.44, 'struktur'], [24.6, '$']]);
 } });
 
 // 6 — 200 km/t
@@ -385,7 +391,7 @@ draw(T, s) {
   person(lerp(240, 150, prog(T, 31.5, 1.5)), DU, { pose: run });
   if (T > 32.4) { rect(150 - 14, GY - 30, 2, 4, C.b); rect(150 - 18, GY - 26, 2, 4, C.b); }
   pop(s.sp, T, 27.8); if (T > 28.2) s.sp.style.transform = `scale(${1 + Math.sin(T * 30) * .02})`;
-  say(T, 'Indimellem vil det føles som at køre 200 km/t på motorvejen bare for at følge med.', 25.93, 33.0);
+  say(T, 'Indimellem vil det føles som at køre 200 km/t på motorvejen bare for at følge med.', [[25.93, 'Indimellem'], [31.48, 'følge'], [32.32, 'følge'], [32.92, '$']]);
 } });
 
 // 7 — FOKUS-MODE / glitch
@@ -402,7 +408,7 @@ S(34.0, { hud: true, talk: true, build(el) {
   }
   pop(s.f1, T, 38.2); if (T > 41.2) s.f1.style.opacity = 0;
   if (T > 41.22) { blink(s.f2, T, 41.22, 4); fx.glitch = .5 + .5 * Math.abs(Math.sin(T * 7)); } else s.f2.style.opacity = 0;
-  say(T, 'Du vil nok også opleve, at jeg kan have en tendens til at være hyperfokuseret – eller mangle det totalt.', 34.32, 43.0);
+  say(T, 'Du vil nok også opleve, at jeg kan have en tendens til at være hyperfokuseret – eller mangle det totalt.', [[34.32, 'Du'], [39.9, '– eller'], [41.22, '– eller'], [43.07, '$']]);
 } });
 
 // 8 — Jeg beklager / fejlvindue
@@ -417,7 +423,7 @@ S(43.3, { hud: true, talk: true, build(el) {
   spr(COACH, 140, 30, TR, 12);
   if (T > 45 && Math.sin(T * 4) > 0) { rect(250, 60, 4, 8, C.b); rect(246, 66, 12, 6, C.b); }
   pop(s.w, T, 47.1, .25);
-  say(T, 'Jeg beklager. Jeg aner simpelthen ikke, hvordan jeg fixer det.', 43.56, 48.3);
+  say(T, 'Jeg beklager. Jeg aner simpelthen ikke, hvordan jeg fixer det.', [[43.56, 'Jeg'], [46.87, 'jeg fixer'], [47.08, 'jeg fixer'], [48.29, '$']]);
 } });
 
 // 9 — MEN
@@ -440,8 +446,8 @@ S(52.1, { hud: true, talk: true, build(el) {
   const bump = T > 59.85 && T < 60.1 ? -4 : 0;
   spr(QB, 228, GY - 92 + bump, PAL_Q, 2);
   s.b.style.opacity = T > 60.8 ? 1 : 0; s.b.style.transform = `scale(${T > 60.8 ? eback(prog(T, 60.8, .3)) : 0})`;
-  type(s.t, T, 61.2, 64.4, '”JEG HAR MULIGVIS VERDENS DÅRLIGSTE IDÉ”'); s.t.style.opacity = 1;
-  say(T, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du føler, det er helt naturligt at række hånden op og sige:', 52.42, 60.6);
+  type(s.t, T, 61.3, 64.47, '”JEG HAR MULIGVIS VERDENS DÅRLIGSTE IDÉ”'); s.t.style.opacity = 1;
+  say(T, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du føler, det er helt naturligt at række hånden op og sige:', [[52.42, 'Kan'], [53.32, 'vil jeg'], [53.81, 'vil jeg'], [61.2, '$']]);
 } });
 
 // 11 — STAGE CLEAR (begejstringen)
@@ -458,7 +464,7 @@ S(65.8, { hud: true, talk: true, build(el) {
   [[100, 60, C.y], [260, 40, C.p], [380, 70, C.b], [180, 90, C.g]].forEach(([x, y, c], i) => { fireworks(T, 68.6 + i * .35, x, y, c); fireworks(T, 70.2 + i * .35, x + 40, y + 10, c); });
   pop(s.ban, T, 68.53, .3);
   s.pts.style.opacity = T > 68.6 && T < 71 ? 1 : 0; s.pts.style.transform = `translateY(${-(T - 68.6) * 40}px)`;
-  say(T, 'At du føler begejstringen, når vi sammen gør det til en realitet.', 66.14, 70.4);
+  say(T, 'At du føler begejstringen, når vi sammen gør det til en realitet.', [[66.14, 'At'], [68.22, 'når'], [68.53, 'når'], [70.45, '$']]);
 } });
 
 // 12 — GAME OVER? → CONTINUE (omsorgen)
@@ -482,7 +488,7 @@ S(72.1, { hud: true, talk: true, build(el) {
   s.rep.style.opacity = T > 74.64 && T < 76.2 && Math.sin(T * 10) > -.3 ? 1 : 0;
   s.go.style.opacity = T > 78.9 && T < 80.0 && Math.sin(T * 9) > -.2 ? 1 : 0;
   pop(s.cont, T, 80.0);
-  say(T, 'Og samtidigt føler omsorgen, når vi kigger tilbage og konstaterer, at det måske virkelig var verdens dårligste idé.', 72.42, 80.6);
+  say(T, 'Og samtidigt føler omsorgen, når vi kigger tilbage og konstaterer, at det måske virkelig var verdens dårligste idé.', [[72.42, 'Og'], [74.19, 'når'], [74.64, 'når'], [76.5, 'og konstaterer'], [76.96, 'og konstaterer'], [78.69, 'virkelig'], [78.92, 'virkelig'], [80.62, '$']]);
 } });
 
 // 13 — træneren kæmper / HARD MODE
@@ -500,7 +506,7 @@ draw(T, s) {
   });
   if (T > 85 && T < 89.5) { rect(236, GY - 30, 2, 26, C.y); rect(238, GY - 32, 2, 30, C.y); }
   blink(s.hm, T, 90.49, 2);
-  say(T, 'Som spillende træner vil jeg kæmpe for dig hver dag. Det vil til tider opleves som frustrerende, fordi jeg vil presse dig.', 82.58, 92.0);
+  say(T, 'Som spillende træner vil jeg kæmpe for dig hver dag. Det vil til tider opleves som frustrerende, fordi jeg vil presse dig.', [[82.58, 'Som'], [85.79, 'Det'], [86.66, 'Det'], [88.51, 'som frustrerende'], [89.04, 'som frustrerende'], [89.8, 'fordi'], [90.49, 'fordi'], [92.06, '$']]);
 } });
 
 // 14 — status: LVL 99 → LEVEL UP
@@ -529,7 +535,7 @@ S(92.9, { hud: true, talk: true, build(el) {
   s.xp.style.left = '96%'; s.xp.style.width = 10 * eio(prog(T, 105.34, .5)) + '%';
   pop(s.lidt, T, 105.4);
   if (T > 106.16) { blink(s.lu, T, 106.16, 3); for (let i = 0; i < 8; i++) fireworks(T, 106.2 + i * .12, 60 + i * 50, 60 + (i % 3) * 30, [C.y, C.p, C.b, C.g][i % 4], 16); } else s.lu.style.opacity = 0;
-  say(T, 'Du er allerede mega god i dag, og jeg er stolt af at have dig på holdet. Men jeg har en naiv tiltro til, at du faktisk kan blive lidt bedre.', 93.23, 106.8);
+  say(T, 'Du er allerede mega god i dag, og jeg er stolt af at have dig på holdet. Men jeg har en naiv tiltro til, at du faktisk kan blive lidt bedre.', [[93.23, 'Du'], [95.61, 'og jeg'], [95.88, 'og jeg'], [97.52, 'på holdet'], [98.08, 'på holdet'], [98.52, 'Men'], [100.89, 'Men'], [104.65, 'lidt'], [105.34, 'lidt'], [105.84, 'bedre'], [106.16, 'bedre'], [106.58, '$']]);
 } });
 
 // 15 — GAME SAVED
@@ -538,7 +544,7 @@ draw(T, s) {
   sky(C.night); stars(T);
   spr(FLOPPY, 216, 40 + Math.sin(T * 3) * 3, { B: '#2C5CFC', W: C.w, G: C.gr, K: C.k }, 4);
   blink(s.t, T, 108.2, 1.5);
-  say(T, 'Uanset hvornår du læser det her.', 107.76, 110.0);
+  say(T, 'Uanset hvornår du læser det her.', [[107.76, 'Uanset'], [108.45, 'du'], [108.81, 'du'], [110.03, '$']]);
 } });
 
 // 16 — NY QUEST
@@ -547,7 +553,7 @@ draw(T, s) {
   day(T); lineup(T); person(430, TR);
   rect(416, GY - 66, 30, 18, '#FCE4A0'); rect(414, GY - 68, 34, 3, '#C8A050'); rect(414, GY - 49, 34, 3, '#C8A050');
   pop(s.t, T, 112.0);
-  say(T, 'Det eneste jeg kræver tilbage er:', 112.02, 114.6);
+  say(T, 'Det eneste jeg kræver tilbage er:', [[112.02, 'Det'], [114.63, '$']]);
 } });
 
 // 17 — quest-log
@@ -583,7 +589,7 @@ S(121.7, { fadeOut: 2.4, build(el) {
   });
   person(430, TR, { dy: T > 128.3 ? -Math.abs(Math.sin(T * 6 + 9)) * 18 : 0 });
   [[90, 50, C.y], [240, 30, C.p], [380, 55, C.b], [160, 70, C.g], [320, 40, C.y]].forEach(([x, y, c], i) => { for (let k = 0; k < 4; k++) fireworks(T, 128.3 + i * .4 + k * 1.3, x + k * 13 % 40, y, c, 22); });
-  type(s.a, T, 122.71, 125.6, 'Tak for at være med til at gøre os til');
+  type(s.a, T, 122.71, 125.4, 'Tak for at være med til at gøre os til');
   pop(s.v, T, 125.7); pop(s.m, T, 126.48, .35); pop(s.b, T, 128.23);
 } });
 
