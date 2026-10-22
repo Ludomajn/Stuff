@@ -1,6 +1,6 @@
 # Ledergrundlag – visualisering
 
-Tre versioner af samme tale. Alle er 1920×1080, 30 fps, ca. 2:08 og uden lyd.
+Tre versioner af samme tale. Alle er 1920×1080, 30 fps, ca. 2:15 og uden lyd.
 
 | Version | Video | Live-præsentation | Stil |
 |---|---|---|---|

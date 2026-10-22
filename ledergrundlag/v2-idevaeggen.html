@@ -323,11 +323,10 @@ S({ dur: 3.5, cam: { x: 2480, y: 1520, z: 1.12, d: .6 }, build() {
 }, render(t, s) { write(s.m.ls, t, .25, .17); draw(s.u1, t, .9, .25); draw(s.u2, t, 1.1, .25); } });
 
 // 9 — række hånden op
-S({ dur: 14, cam: { x: 1400, y: 1560, z: .95 }, build() {
+S({ dur: 11, cam: { x: 1400, y: 1560, z: .95 }, build() {
   const g = group();
   const m = marker(g, { x: 1400, y: 1150, size: 64, lines: [
     'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'at du føler, det er helt naturligt', 'at række hånden op og sige:'] });
-  const m2 = marker(g, { x: 1400, y: 2010, size: 54, lines: ['– og føler <span class="red">begejstringen</span>, når vi sammen har gjort det til en realitet.'] });
   const fig = [
     path(g, 'M 980 1555 a 46 46 0 1 0 1 0'),
     path(g, 'M 980 1648 L 980 1820'),
@@ -337,7 +336,7 @@ S({ dur: 14, cam: { x: 1400, y: 1560, z: .95 }, build() {
   ];
   const n = note(g, { x: 1560, y: 1700, w: 680, h: 470, col: COL.yellow, rot: 2, lines: [['”Jeg har muligvis', 94], ['verdens dårligste', 94], ['idé.”', 94]] });
   const hint = path(g, 'M 1090 1560 Q 1150 1560 1190 1610', '#E23D28', 8);
-  return { g, m, m2, fig, n, hint };
+  return { g, m, fig, n, hint };
 }, render(t, s) {
   write(s.m.ls, t, 1.0, .03);
   s.fig.forEach((p, i) => draw(p, t, 4.4 + i * .3, .35));
@@ -345,66 +344,70 @@ S({ dur: 14, cam: { x: 1400, y: 1560, z: .95 }, build() {
   s.fig[4].style.transform = `rotate(${wave}deg)`; s.fig[4].style.transformOrigin = '980px 1690px';
   draw(s.hint, t, 6.0, .3);
   slap(s.n, t, 6.3); write(s.n.ls, t, 6.6, .045);
-  write(s.m2.ls, t, 9.0, .03);
 } });
 
-// 10 a/b/c — begejstring, opbakning, holdet
-S({ dur: 7, cam: { x: 690, y: 2410, z: 1.2 }, build() {
+// 10a — begejstringen, når vi sammen har gjort det til en realitet
+S({ dur: 6.5, cam: { x: 690, y: 2410, z: 1.2 }, build() {
   const g = group();
-  const n = note(g, { x: 660, y: 2420, w: 620, h: 640, col: COL.yellow, rot: -2.5, lines: [['Her på holdet', 82], ['vinder vi', 104, 'color:#E23D28'], ['sammen.', 104, 'color:#E23D28'],
-    ['Den begejstring du', 58, 'margin-top:18px'], ['føler, når du lykkes,', 58], ['føler du med os alle.', 58]] });
+  const n = note(g, { x: 660, y: 2420, w: 620, h: 640, col: COL.yellow, rot: -2.5, lines: [['At du føler', 84], ['begejstringen,', 104, 'color:#E23D28'],
+    ['når vi sammen', 76, 'margin-top:14px'], ['har gjort det til', 76], ['en realitet.', 76]] });
   const burst = path(g, [0, 1, 2, 3, 4, 5, 6].map(k => { const a = -2.6 + k * .45; return `M ${930 + Math.cos(a) * 40} ${2130 + Math.sin(a) * 40} L ${930 + Math.cos(a) * 95} ${2130 + Math.sin(a) * 95}`; }).join(' '), '#E23D28', 9);
   return { g, n, burst };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.burst, t, 4.6, .5); } });
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.burst, t, 3.8, .5); } });
 
-S({ dur: 5, cam: { x: 1380, y: 2410, z: 1.25 }, build() {
+// 10b — opbakningen, når det var verdens dårligste idé
+S({ dur: 8, cam: { x: 1380, y: 2410, z: 1.2 }, build() {
   const g = group();
-  const n = note(g, { x: 1360, y: 2420, w: 620, h: 600, col: COL.pink, rot: 2, lines: [['Du skal mærke', 78], ['opbakningen,', 106, 'color:#E23D28'], ['når du tør tage', 78], ['en chance.', 78]] });
-  const arrow = path(g, 'M 1730 2700 C 1790 2560 1770 2380 1710 2250 M 1680 2300 L 1708 2245 L 1760 2280', '#E23D28', 9);
-  return { g, n, arrow };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.arrow, t, 3.2, .6); } });
-
-S({ dur: 5.5, cam: { x: 2080, y: 2400, z: 1.25 }, build() {
-  const g = group();
-  const n = note(g, { x: 2060, y: 2390, w: 620, h: 600, col: COL.green, rot: -1.5, lines: [['Når det ikke', 80], ['føles sjovt:', 80], ['dit hold er', 106, 'color:#E23D28;margin-top:10px'], ['der for dig.', 106]] });
-  const heart = path(g, 'M 2330 2680 C 2280 2640 2290 2590 2330 2600 C 2370 2590 2380 2640 2330 2680 Z', '#E23D28', 8);
+  const n = note(g, { x: 1360, y: 2420, w: 620, h: 640, col: COL.pink, rot: 2, lines: [['Og samtidigt føler', 70], ['opbakningen,', 104, 'color:#E23D28'],
+    ['når vi retrospektivt', 60, 'margin-top:10px'], ['kan konstatere, at det', 60], ['måske virkelig var', 60], ['verdens dårligste idé.', 60]] });
+  const heart = path(g, 'M 1650 2730 C 1600 2690 1610 2640 1650 2650 C 1690 2640 1700 2690 1650 2730 Z', '#E23D28', 8);
   return { g, n, heart };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.heart, t, 3.8, .6); } });
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .04); draw(s.heart, t, 5.6, .6); } });
 
-// 11 — en smule presset / lidt bedre
-S({ dur: 12, cam: { x: 3220, y: 2470, z: .92 }, build() {
+// 11a — jeg vil kæmpe for dig / presse dig
+S({ dur: 8, cam: { x: 2080, y: 2400, z: 1.2 }, build() {
   const g = group();
-  const n = note(g, { x: 2850, y: 2330, w: 620, h: 540, col: COL.orange, rot: 1.5, lines: [['Du skal også', 78], ['forberede dig på', 78], ['at blive en smule', 78], ['presset.', 124, 'margin-top:8px']] });
+  const n = note(g, { x: 2060, y: 2390, w: 620, h: 620, col: COL.green, rot: -1.5, lines: [['Som spillende træner', 64], ['vil jeg kæmpe', 64], ['for dig', 112, 'color:#E23D28'], ['hver dag.', 64],
+    ['Det vil til tider opleves', 50, 'margin-top:16px'], ['som frustrerende, fordi', 50], ['jeg vil presse dig.', 50]] });
+  return { g, n };
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .04); } });
+
+// 11b — mega god i dag / lidt bedre
+S({ dur: 11, cam: { x: 3220, y: 2470, z: .92 }, build() {
+  const g = group();
+  const n = note(g, { x: 2850, y: 2330, w: 620, h: 540, col: COL.orange, rot: 1.5, lines: [['Du er allerede', 76], ['mega god', 124, 'color:#E23D28'], ['i dag,', 76],
+    ['og jeg er stolt af at', 58, 'margin-top:12px'], ['have dig på holdet.', 58]] });
   const axes = path(g, 'M 3290 2080 L 3290 2620 L 3800 2620');
   const bar = path(g, 'M 3380 2620 L 3380 2270 L 3600 2270 L 3600 2620');
   const lab = marker(g, { x: 3490, y: 2450, size: 62, lines: ['mega god', 'i dag'] });
   const plus = path(g, 'M 3380 2270 L 3380 2140 L 3600 2140 L 3600 2270', '#E23D28', 9);
-  plus.setAttribute('stroke-dasharray', '1');
   const arrow = path(g, 'M 3700 2470 L 3700 2150 M 3670 2190 L 3700 2145 L 3730 2190', '#E23D28', 9);
   const lidt = marker(g, { x: 3830, y: 2110, size: 96, cls: 'red', lines: ['+ lidt'], rot: -4 });
-  const m = marker(g, { x: 3200, y: 2840, size: 56, lines: ['Du er mega god i dag, og jeg er stolt af at have dig som en del af holdet.', 'Men jeg har en naiv tiltro til, at du faktisk kan blive <span class="red">lidt</span> bedre.'] });
+  const m = marker(g, { x: 3200, y: 2850, size: 66, lines: ['Men jeg har en naiv tiltro til,', 'at du faktisk kan blive <span class="red">lidt</span> bedre.'] });
   return { g, n, axes, bar, lab, plus, arrow, lidt, m };
 }, render(t, s) {
   slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045);
-  draw(s.axes, t, 3.4, .6); draw(s.bar, t, 4.0, .8); write(s.lab.ls, t, 4.8, .05);
-  write(s.m.ls, t, 5.6, .03);
-  draw(s.plus, t, 8.4, .6); draw(s.arrow, t, 8.8, .5); write(s.lidt.ls, t, 9.2, .08);
+  draw(s.axes, t, 3.0, .6); draw(s.bar, t, 3.6, .8); write(s.lab.ls, t, 4.4, .05);
+  write(s.m.ls, t, 5.4, .035);
+  draw(s.plus, t, 7.6, .6); draw(s.arrow, t, 8.0, .5); write(s.lidt.ls, t, 8.4, .08);
 } });
 
-// 12 — uenig? sig det
-S({ dur: 7, cam: { x: 4220, y: 2400, z: 1.2 }, build() {
+// 12 — min opgave: at du vokser
+S({ dur: 8, cam: { x: 4260, y: 2400, z: 1.15 }, build() {
   const g = group();
-  const n = note(g, { x: 4220, y: 2390, w: 640, h: 600, col: COL.pink, rot: 2, lines: [
-    ['Uanset hvornår du', 76], ['læser det her:', 76], ['Uenig?', 132, 'color:#E23D28;margin:6px 0'], ['Så please sig det', 76], ['til mig.', 76]] });
-  return { g, n };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); } });
+  const n = note(g, { x: 4220, y: 2400, w: 640, h: 680, col: COL.pink, rot: 2, lines: [
+    ['Uanset hvornår du', 72], ['læser det her:', 72], ['Det er min opgave', 64, 'margin-top:14px'], ['at sørge for, at du', 64],
+    ['vokser', 132, 'color:#E23D28'], ['til den, du kan blive.', 64]] });
+  const sprout = path(g, 'M 4620 2730 C 4618 2630 4626 2540 4618 2430 M 4621 2590 C 4670 2550 4705 2560 4718 2525 M 4619 2500 C 4575 2470 4540 2480 4524 2448', '#E23D28', 9);
+  return { g, n, sprout };
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .04); draw(s.sprout, t, 5.0, 1.4); } });
 
 // 13 — det eneste jeg kræver
-S({ dur: 4.5, cam: { x: 5080, y: 2320, z: 1.15 }, build() {
+S({ dur: 4, cam: { x: 5080, y: 2320, z: 1.15 }, build() {
   const g = group();
-  const m = marker(g, { x: 5090, y: 2230, size: 78, lines: ['Det eneste jeg kræver', 'tilbage af dig er:'], rot: -1.5 });
+  const m = marker(g, { x: 5090, y: 2230, size: 84, lines: ['Det eneste jeg kræver', 'tilbage er:'], rot: -1.5 });
   return { g, m };
-}, render(t, s) { write(s.m.ls, t, 1.0, .05); } });
+}, render(t, s) { write(s.m.ls, t, .9, .05); } });
 
 // 14 a/b/c — Vær åben, nysgerrig, modig
 const VAER = [['Vær <span class="red">åben.</span>', COL.yellow, -1.5], ['Vær <span class="red">nysgerrig</span> på andre.', COL.blue, 1.2], ['Vær <span class="red">modig</span> overfor dig selv.', COL.green, -1]];
@@ -414,13 +417,19 @@ VAER.forEach(([txt, col, rot], k) => S({ dur: k === 2 ? 5 : 4.5, cam: VCAM[k], b
   return { g, n: note(g, { x: 5090, y: 2460 + k * 240, w: 880, h: 215, col, rot, pad: '20px 50px', lines: [[txt, 92]] }) };
 }, render(t, s) { slap(s.n, t, .8); write(s.n.ls, t, 1.1, .035); } }));
 
-// 15 — zoom ud: hele væggen
-S({ dur: 9, fadeOut: 2, cam: { x: 3000, y: 1550, z: .32, d: 3.2 }, build(el) {
-  const fin = mk(el, 'note', 'left:460px;top:330px;width:1000px;height:420px;background-color:#FFE066;align-items:center;opacity:0;');
-  const ls = [mk(fin, 'ln', 'font-size:110px', 'Åben.'), mk(fin, 'ln', 'font-size:110px', 'Nysgerrig.'), mk(fin, 'ln', 'font-size:110px;color:#E23D28', 'Modig.')];
-  fin.style.flexDirection = 'row'; fin.style.justifyContent = 'center'; fin.style.gap = '40px';
-  return { g: group(), fin: { n: fin, rot: -2, ls } };
-}, render(t, s) { slap(s.fin, t, 4.0); write(s.fin.ls, t, 4.3, .06); } });
+// 15 — zoom ud: hele væggen + tak
+S({ dur: 11, fadeOut: 2, cam: { x: 3000, y: 1550, z: .32, d: 3.2 }, build(el) {
+  const fin = mk(el, 'note', 'left:290px;top:330px;width:1340px;height:420px;background-color:#FFE066;align-items:center;opacity:0;');
+  const ls = [mk(fin, 'ln', 'font-size:66px', 'Tak for at være med til at gøre os til'),
+    mk(fin, 'ln', 'font-size:112px;margin-top:70px', 'verdens <span class="mb"><svg width="56" height="44" viewBox="-28 -22 56 44"><path d="M -18 14 L 0 -14 L 18 14" fill="none" stroke="#E23D28" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="red">formentlig</span></span> bedste hold.')];
+  const mb = fin.querySelector('.mb');
+  return { g: group(), fin: { n: fin, rot: -2, ls }, caret: mb.querySelector('path'), word: mb.querySelector('span') };
+}, render(t, s) {
+  slap(s.fin, t, 3.6); write(s.fin.ls, t, 3.9, .045);
+  draw(s.caret, t, 6.6, .4);
+  const p = clamp((t - 7.0) / .7); s.word.style.opacity = p > 0 ? 1 : 0;
+  s.word.style.clipPath = p >= 1 ? 'none' : `inset(-30% ${(1 - p) * 100}% -30% -6%)`;
+} });
 
 // ---------- kamera + væg ----------
 E.run({ scenes, stage, layer: document.getElementById('layer'), before(i, lt, out, a) {

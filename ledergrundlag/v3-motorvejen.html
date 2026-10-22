@@ -274,7 +274,7 @@ function place(el, k, sx = 960, sy = 300, extra = '', mw = 1640, mh = 500, cap =
   if (!el._b) el._b = Math.min(cap, mw / el.offsetWidth, mh / el.offsetHeight);
   const x = st.vpx + (sx - 960) * k, y = HY + (sy - HY) * k;
   el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) scale(${k * el._b})` + extra;
-  el.style.opacity = clamp((k - .06) * 8);
+  el.style.opacity = clamp((k - .06) * 8) * clamp((6 - k) / 2.5);
 }
 function sign(el, cls, lines) {
   const s = mk(el, 'sign ' + cls);
@@ -383,44 +383,44 @@ S({ dur: 3.5, speed: 0, brake: 7, day: 0, fadeOut: .4, flash(t) { return .45 * M
 } });
 
 // 9 — række hånden op (daggry begynder)
-S({ dur: 14, speed: 60, day: .3, build(el) {
+S({ dur: 11, speed: 60, day: .3, build(el) {
   return sign(el, '', [['Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'sm'], ['at du føler, det er helt naturligt', 'sm'],
     ['at række hånden op og sige:', 'sm'], ['”Jeg har muligvis', 'lg'], ['verdens dårligste idé.”', 'lg']]);
 }, render(t, s, out) {
   if (!s.styled) { s.styled = 1; s.ls.forEach(l => { if (l.classList.contains('sm')) l.style.fontSize = '42px'; else { l.style.fontSize = '96px'; l.style.color = '#FFD21F'; } }); s.ls[3].style.marginTop = '14px'; }
-  place(s.s, signK(t, out), 960, 270); lines(s.ls.slice(0, 3), t, 1.6, .9); lines(s.ls.slice(3), t, 5.4, .6);
-  if (!s.y) s.y = sign(s.s.parentNode, 'y', [['– og føler <b>begejstringen</b>, når vi', 'sm'], ['sammen har gjort det til en realitet.', 'sm']]);
-  place(s.y.s, signK(t, out, 8.6, 1.4), 960, 700, '', 1100, 200, 1.4); lines(s.y.ls, t, 9.6, .5);
+  place(s.s, signK(t, out)); lines(s.ls.slice(0, 3), t, 1.6, .9); lines(s.ls.slice(3), t, 5.4, .6);
 } });
 
-// 10 a/b/c
-[['Her på holdet', 'vinder vi sammen', 'Den begejstring, du føler, når du lykkes, føler du med os alle.', .42], ['Du skal mærke', 'opbakningen', 'når du tør tage en chance.', .52],
- ['Og når det ikke føles sjovt, skal du vide, at', 'dit hold er der for dig', '', .6]].forEach(([a, b, c, day], i) => S({
-  dur: [7, 5, 5.5][i], speed: 90, day, build(el) { return sign(el, '', [[a, 'sm'], [b, 'lg hl'], [c, 'sm']]); },
-  render(t, s, out) { place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.3, .45); },
+// 10 a/b, 11a — begejstring, opbakning, kæmpe for dig
+[[[['At du føler', 'sm'], ['begejstringen', 'lg hl'], ['når vi sammen har gjort det til en realitet.', 'sm']], .42, 6.5, 90],
+ [[['Og samtidigt føler', 'sm'], ['opbakningen', 'lg hl'], ['når vi retrospektivt kan konstatere, at det', 'sm'], ['måske virkelig var verdens dårligste idé.', 'sm']], .52, 8, 75],
+ [[['Som spillende træner vil jeg', 'sm'], ['kæmpe for dig hver dag', 'lg hl'], ['Det vil til tider opleves som frustrerende,', 'sm'], ['fordi jeg vil presse dig.', 'sm']], .6, 8, 125],
+].forEach(([ls, day, dur, speed]) => S({
+  dur, speed, day, build(el) { return sign(el, '', ls); },
+  render(t, s, out) { place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.3, .6); },
 }));
 
-// 11 — en smule presset
-S({ dur: 12, speed: 125, day: .66, build(el) {
-  const o = sign(el, '', [['Du skal til gengæld også forberede dig på at blive', 'sm'], ['en smule presset.', 'lg'],
-    ['Du er helt sikkert mega god i dag, og jeg er stolt', 'sm'], ['af at have dig som en del af holdet. Men jeg har en naiv', 'sm'], ['tiltro til, at du faktisk kan blive <span class="hl">lidt</span> bedre.', 'sm']]);
-  o.ls[2].style.marginTop = '18px';
+// 11b — mega god i dag / lidt bedre
+S({ dur: 11, speed: 110, day: .66, build(el) {
+  const o = sign(el, '', [['Du er allerede mega god i dag,', 'sm'], ['og jeg er stolt af at have dig på holdet.', 'sm'],
+    ['Men jeg har en naiv tiltro til,', 'sm'], ['at du faktisk kan blive <span class="hl">lidt</span> bedre.', 'lg']]);
+  o.ls[2].style.marginTop = '22px'; o.ls[3].style.fontSize = '88px';
   o.patch = mk(o.s, 'patch', 'right:-40px;top:-46px;font-size:76px;', '+ LIDT');
   return o;
 }, render(t, s, out) {
-  place(s.s, signK(t, out)); lines(s.ls.slice(0, 2), t, 1.5, .6); lines(s.ls.slice(2), t, 4.6, .9);
-  slapPatch(s.patch, t, 8.4, 'rotate(7deg)');
+  place(s.s, signK(t, out)); lines(s.ls.slice(0, 2), t, 1.5, .6); lines(s.ls.slice(2), t, 4.2, .8);
+  slapPatch(s.patch, t, 7.6, 'rotate(7deg)');
 } });
 
-// 12 — uenig? sig det
-S({ dur: 7, speed: 90, day: .72, build(el) {
-  return sign(el, '', [['Uanset hvornår du læser det her:', 'sm'], ['Uenig?', 'lg hl'], ['Så please sig det til mig.', 'lg']]);
-}, render(t, s, out) { if (!s.s._b) s.ls[2].style.fontSize = '84px'; place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .8); } });
+// 12 — min opgave: at du vokser
+S({ dur: 8, speed: 90, day: .72, build(el) {
+  return sign(el, '', [['Uanset hvornår du læser det her.', 'sm'], ['Og det er min opgave at sørge for,', 'sm'], ['at du vokser til den,', 'lg hl'], ['du kan blive.', 'lg']]);
+}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .8); } });
 
 // 13 — det eneste jeg kræver
-S({ dur: 4.5, speed: 70, day: .78, build(el) {
-  return sign(el, '', [['Det eneste jeg kræver', 'lg'], ['tilbage af dig er:', 'lg']]);
-}, render(t, s, out) { if (!s.s._b) s.ls.forEach(l => l.style.fontSize = '100px'); place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.2, .5); } });
+S({ dur: 4, speed: 70, day: .78, build(el) {
+  return sign(el, '', [['Det eneste jeg kræver', 'lg'], ['tilbage er:', 'lg']]);
+}, render(t, s, out) { if (!s.s._b) s.ls.forEach(l => l.style.fontSize = '100px'); place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.1, .5); } });
 
 // 14 a/b/c — vognbaneskilte over vejen, ét ad gangen
 const LANES = [['Vær', 'åben', '&nbsp;'], ['Vær', 'nysgerrig', 'på andre'], ['Vær', 'modig', 'overfor dig selv']];
@@ -442,10 +442,18 @@ const ARROW = '<svg width="70" height="78" viewBox="0 0 70 78" style="margin-top
   });
 } }));
 
-// 15 — solopgang
-S({ dur: 9, speed: 110, day: 1, customOut: false, fadeOut: 2.2, build(el) {
-  return { a: mk(el, '', 'position:absolute;left:0;right:0;top:60px;text-align:center;font-size:80px;font-weight:400;letter-spacing:.1em;text-shadow:0 4px 30px rgba(0,0,0,.35);opacity:0', 'Åben<span style="margin:0 .45em 0 .35em">·</span>Nysgerrig<span style="margin:0 .45em 0 .35em">·</span>Modig') };
-}, render(t, s) { const p = eo(prog(t, 2.2, 1.4)); s.a.style.opacity = p; s.a.style.transform = `translateY(${(1 - p) * 30}px)`; } });
+// 15 — tak + solopgang: skiltet kører forbi, og vejen åbner sig mod solen
+S({ dur: 11, speed: 110, day: 1, customOut: false, fadeOut: 2.2, build(el) {
+  const o = sign(el, '', [['Tak for at være med til at gøre os til', 'sm'],
+    ['verdens<span class="ins"><span class="patch" style="font-size:58px">FORMENTLIG</span></span> bedste hold', 'lg']]);
+  o.ls[1].style.marginTop = '120px';
+  o.patch = o.s.querySelector('.patch'); o.patch.style.left = '0'; o.patch.style.bottom = '1.55em';
+  return o;
+}, render(t, s) {
+  place(s.s, signK(t, clamp((t - 7.2) / 1.1), .2, 1.8));
+  lines(s.ls, t, 1.5, .7);
+  slapPatch(s.patch, t, 4.4, 'translateX(-50%) rotate(-8deg)');
+} });
 
 // ---------- kørsel ----------
 E.run({ scenes, stage, ctx, layer: document.getElementById('layer'), before(i, lt, out, a) {
