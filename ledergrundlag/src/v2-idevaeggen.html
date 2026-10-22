@@ -11,7 +11,7 @@
   #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
   #stage { width: 1920px; height: 1080px; flex: none; position: relative; overflow: hidden; background: #D9D3C7; transform-origin: center; }
   #world {
-    position: absolute; left: 0; top: 0; width: 6000px; height: 3100px; transform-origin: 0 0;
+    position: absolute; left: 0; top: 0; width: 6000px; height: 3250px; transform-origin: 0 0;
     background-color: #F4F1EA;
     background-image: radial-gradient(rgba(0,0,0,.08) 1.8px, transparent 2.2px);
     background-size: 52px 52px;
@@ -115,14 +115,14 @@ S({ dur: 9, cam: { x: 1520, y: 580, z: 1.3 }, build() {
   s.maybe.style.clipPath = p >= 1 ? 'none' : `inset(-30% ${(1 - p) * 100}% -30% -6%)`;
 } });
 
-// 3 — hvad du er en del af
+// 3 — spillende træner
 S({ dur: 6, cam: { x: 2320, y: 520, z: 1.3 }, build() {
   const g = group();
-  const n = note(g, { x: 2320, y: 500, w: 620, h: 560, col: COL.blue, rot: -2, lines: [
-    ['Før salgstalen:', 86], ['forstå, hvad', 86], ['du er en', 120, 'margin-top:14px'], ['del af.', 120]] });
-  const c = path(g, 'M 2140 700 C 2230 760 2420 760 2500 690', '#E23D28', 10);
-  return { g, n, c };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.3, .045); draw(s.c, t, 4.0, .5); } });
+  const n = note(g, { x: 2320, y: 500, w: 620, h: 580, col: COL.blue, rot: -2, lines: [
+    ['Jeg er spillende', 90], ['træner på holdet!', 90, 'color:#E23D28'],
+    ['Og jeg vil gerne', 66, 'margin-top:26px'], ['starte med at', 66], ['være ærlig.', 66]] });
+  return { g, n };
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.3, .045); } });
 
 // 4 — kaos og (voldsomt) mange idéer
 const IDEAS = ['Ny idé!', 'Hvad nu hvis…', 'Plan B', 'Plan C', 'Vent – bedre:', 'Pivot!', 'Nyt projekt?', 'Okay, hør her', 'Idé!!',
@@ -147,7 +147,7 @@ S({ dur: 9, cam: { x: 3330, y: 700, z: 1.05 }, camFx(t) {
   const ideas = KAOS.map(k => note(g, { x: k.x, y: k.y, w: k.big ? 280 : 210, h: k.big ? 280 : 210, col: k.col, rot: k.rot, pad: '20px 22px',
     lines: [[k.txt, k.big ? 64 : 46, 'text-align:center;white-space:normal']] }));
   const n = note(g, { x: 3330, y: 690, w: 680, h: 600, col: COL.orange, rot: 1.5, lines: [['Du vil opleve', 100], ['KAOS.', 170, 'color:#E23D28'],
-    ['Frustration over min struktur', 48, 'margin-top:16px'], ['og mine <span class="red">(voldsomt)</span> mange idéer.', 48]] });
+    ['Og blive frustreret over', 48, 'margin-top:16px'], ['min manglende struktur', 48], ['samt mine mange idéer.', 48]] });
   return { g, n, ideas };
 }, render(t, s) {
   slap(s.n, t, .9); write(s.n.ls, t, 1.2, .07);
@@ -158,7 +158,7 @@ S({ dur: 9, cam: { x: 3330, y: 700, z: 1.05 }, camFx(t) {
 S({ dur: 8, cam: { x: 4560, y: 580, z: 1.15 }, build() {
   const g = group();
   const n = note(g, { x: 4520, y: 580, w: 660, h: 600, col: COL.yellow, rot: -2, lines: [
-    ['Indimellem føles det', 76], ['som at køre', 76], ['200 km/t', 160, 'color:#E23D28;margin:6px 0'], ['på motorvejen for', 76], ['at følge med.', 76]] });
+    ['Indimellem føles det', 76], ['som at køre', 76], ['200 km/t', 160, 'color:#E23D28;margin:6px 0'], ['på motorvejen bare', 76], ['for at følge med.', 76]] });
   const lines = [400, 500, 600, 700].map((y, i) => path(g, `M ${4900 + i * 20} ${y} L ${5180 + i * 30} ${y + 6}`, '#1E1D1B', 10));
   return { g, n, lines };
 }, render(t, s) {
@@ -171,27 +171,25 @@ S({ dur: 8, cam: { x: 4560, y: 580, z: 1.15 }, build() {
 // 6 — hyperfokus / mangler det totalt
 S({ dur: 8.5, cam: { x: 4480, y: 1600, z: .98 }, build() {
   const g = group();
-  const a = note(g, { x: 4250, y: 1440, w: 700, h: 460, col: COL.green, rot: -2, lines: [['Du vil nok også', 74], ['opleve, at jeg har', 74], ['hyperfokus.', 124, 'margin-top:8px']] });
-  const b = note(g, { x: 4720, y: 1730, w: 600, h: 380, col: COL.pink, rot: 4, lines: [['… eller mangler', 84], ['det totalt.', 110]] });
+  const a = note(g, { x: 4250, y: 1440, w: 700, h: 460, col: COL.green, rot: -2, lines: [['Du vil nok også opleve,', 66], ['at jeg kan have en', 66], ['tendens til at være', 66], ['hyperfokuseret.', 112, 'margin-top:8px']] });
+  const b = note(g, { x: 4790, y: 1790, w: 560, h: 340, col: COL.pink, rot: 4, lines: [['… eller mangle', 84], ['det totalt.', 110]] });
   b.n.style.transformOrigin = '5% 5%';
   return { g, a, b };
 }, render(t, s) {
   slap(s.a, t, .9); write(s.a.ls, t, 1.2, .045); 
   const p = prog(t, 5.9, 1.6);
-  const swing = p > 0 ? 24 * (1 - Math.exp(-p * 5) * Math.cos(p * 13)) : 0;
+  const swing = p > 0 ? 12 * (1 - Math.exp(-p * 5) * Math.cos(p * 13)) : 0;
   slap(s.b, t, 4.0, ` rotate(${swing}deg)`); write(s.b.ls, t, 4.3, .045);
 } });
 
 // 7 — Jeg beklager
-S({ dur: 7, cam: { x: 3420, y: 1520, z: 1.08 }, build() {
+S({ dur: 6, cam: { x: 3420, y: 1520, z: 1.08 }, build() {
   const g = group();
   const n = note(g, { x: 3420, y: 1560, w: 640, h: 580, col: COL.blue, rot: -1.5, lines: [
     ['Jeg beklager.', 126, 'margin-bottom:14px'], ['Jeg aner simpelthen', 76], ['ikke, hvordan jeg', 76], ['fixer det.', 76]] });
-  const small = note(g, { x: 3760, y: 1880, w: 380, h: 200, col: COL.yellow, rot: 5, pad: '22px 26px', lines: [['Det ved du sikkert', 44], ['allerede.', 44]] });
-  return { g, n, small };
+  return { g, n };
 }, render(t, s) {
-  slap(s.small, t, .8); write(s.small.ls, t, 1.0, .04);
-  slap(s.n, t, 2.0); write(s.n.ls, t, 2.3, .045);
+  slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045);
 } });
 
 // 8 — MEN
@@ -204,10 +202,11 @@ S({ dur: 3.5, cam: { x: 2480, y: 1520, z: 1.12, d: .6 }, build() {
 }, render(t, s) { write(s.m.ls, t, .25, .17); draw(s.u1, t, .9, .25); draw(s.u2, t, 1.1, .25); } });
 
 // 9 — række hånden op
-S({ dur: 12, cam: { x: 1400, y: 1540, z: .95 }, build() {
+S({ dur: 14, cam: { x: 1400, y: 1560, z: .95 }, build() {
   const g = group();
   const m = marker(g, { x: 1400, y: 1150, size: 64, lines: [
-    'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'at du får et sted, hvor det føles helt naturligt', 'at række hånden op og sige:'] });
+    'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'at du føler, det er helt naturligt', 'at række hånden op og sige:'] });
+  const m2 = marker(g, { x: 1400, y: 2010, size: 54, lines: ['– og føler <span class="red">begejstringen</span>, når vi sammen har gjort det til en realitet.'] });
   const fig = [
     path(g, 'M 980 1555 a 46 46 0 1 0 1 0'),
     path(g, 'M 980 1648 L 980 1820'),
@@ -217,7 +216,7 @@ S({ dur: 12, cam: { x: 1400, y: 1540, z: .95 }, build() {
   ];
   const n = note(g, { x: 1560, y: 1700, w: 680, h: 470, col: COL.yellow, rot: 2, lines: [['”Jeg har muligvis', 94], ['verdens dårligste', 94], ['idé.”', 94]] });
   const hint = path(g, 'M 1090 1560 Q 1150 1560 1190 1610', '#E23D28', 8);
-  return { g, m, fig, n, hint };
+  return { g, m, m2, fig, n, hint };
 }, render(t, s) {
   write(s.m.ls, t, 1.0, .03);
   s.fig.forEach((p, i) => draw(p, t, 4.4 + i * .3, .35));
@@ -225,15 +224,17 @@ S({ dur: 12, cam: { x: 1400, y: 1540, z: .95 }, build() {
   s.fig[4].style.transform = `rotate(${wave}deg)`; s.fig[4].style.transformOrigin = '980px 1690px';
   draw(s.hint, t, 6.0, .3);
   slap(s.n, t, 6.3); write(s.n.ls, t, 6.6, .045);
+  write(s.m2.ls, t, 9.0, .03);
 } });
 
 // 10 a/b/c — begejstring, opbakning, holdet
-S({ dur: 5, cam: { x: 690, y: 2400, z: 1.25 }, build() {
+S({ dur: 7, cam: { x: 690, y: 2410, z: 1.2 }, build() {
   const g = group();
-  const n = note(g, { x: 660, y: 2400, w: 620, h: 580, col: COL.yellow, rot: -2.5, lines: [['Du skal føle', 82], ['begejstringen,', 104, 'color:#E23D28'], ['når du lykkes.', 82]] });
+  const n = note(g, { x: 660, y: 2420, w: 620, h: 640, col: COL.yellow, rot: -2.5, lines: [['Her på holdet', 82], ['vinder vi', 104, 'color:#E23D28'], ['sammen.', 104, 'color:#E23D28'],
+    ['Den begejstring du', 58, 'margin-top:18px'], ['føler, når du lykkes,', 58], ['føler du med os alle.', 58]] });
   const burst = path(g, [0, 1, 2, 3, 4, 5, 6].map(k => { const a = -2.6 + k * .45; return `M ${930 + Math.cos(a) * 40} ${2130 + Math.sin(a) * 40} L ${930 + Math.cos(a) * 95} ${2130 + Math.sin(a) * 95}`; }).join(' '), '#E23D28', 9);
   return { g, n, burst };
-}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.burst, t, 2.9, .5); } });
+}, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); draw(s.burst, t, 4.6, .5); } });
 
 S({ dur: 5, cam: { x: 1380, y: 2410, z: 1.25 }, build() {
   const g = group();
@@ -260,7 +261,7 @@ S({ dur: 12, cam: { x: 3220, y: 2470, z: .92 }, build() {
   plus.setAttribute('stroke-dasharray', '1');
   const arrow = path(g, 'M 3700 2470 L 3700 2150 M 3670 2190 L 3700 2145 L 3730 2190', '#E23D28', 9);
   const lidt = marker(g, { x: 3830, y: 2110, size: 96, cls: 'red', lines: ['+ lidt'], rot: -4 });
-  const m = marker(g, { x: 3200, y: 2840, size: 62, lines: ['Du er mega god i dag. Men jeg har en naiv tiltro til,', 'at du faktisk kan blive <span class="red">lidt</span> bedre.'] });
+  const m = marker(g, { x: 3200, y: 2840, size: 56, lines: ['Du er mega god i dag, og jeg er stolt af at have dig som en del af holdet.', 'Men jeg har en naiv tiltro til, at du faktisk kan blive <span class="red">lidt</span> bedre.'] });
   return { g, n, axes, bar, lab, plus, arrow, lidt, m };
 }, render(t, s) {
   slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045);
@@ -278,18 +279,18 @@ S({ dur: 7, cam: { x: 4220, y: 2400, z: 1.2 }, build() {
 }, render(t, s) { slap(s.n, t, .9); write(s.n.ls, t, 1.2, .045); } });
 
 // 13 — det eneste jeg kræver
-S({ dur: 4.5, cam: { x: 5080, y: 2260, z: 1.15 }, build() {
+S({ dur: 4.5, cam: { x: 5080, y: 2320, z: 1.15 }, build() {
   const g = group();
-  const m = marker(g, { x: 5090, y: 2170, size: 78, lines: ['Det eneste jeg kræver', 'tilbage af dig er:'], rot: -1.5 });
+  const m = marker(g, { x: 5090, y: 2230, size: 78, lines: ['Det eneste jeg kræver', 'tilbage af dig er:'], rot: -1.5 });
   return { g, m };
 }, render(t, s) { write(s.m.ls, t, 1.0, .05); } });
 
 // 14 a/b/c — Vær åben, nysgerrig, modig
 const VAER = [['Vær <span class="red">åben.</span>', COL.yellow, -1.5], ['Vær <span class="red">nysgerrig</span> på andre.', COL.blue, 1.2], ['Vær <span class="red">modig</span> overfor dig selv.', COL.green, -1]];
-const VCAM = [{ x: 5080, y: 2440, z: 1.0 }, { x: 5080, y: 2540, z: .96 }, { x: 5080, y: 2620, z: .92 }];
+const VCAM = [{ x: 5080, y: 2500, z: 1.0 }, { x: 5080, y: 2600, z: .96 }, { x: 5080, y: 2660, z: .92 }];
 VAER.forEach(([txt, col, rot], k) => S({ dur: k === 2 ? 5 : 4.5, cam: VCAM[k], build() {
   const g = group();
-  return { g, n: note(g, { x: 5090, y: 2400 + k * 245, w: 880, h: 215, col, rot, pad: '20px 50px', lines: [[txt, 92]] }) };
+  return { g, n: note(g, { x: 5090, y: 2460 + k * 240, w: 880, h: 215, col, rot, pad: '20px 50px', lines: [[txt, 92]] }) };
 }, render(t, s) { slap(s.n, t, .8); write(s.n.ls, t, 1.1, .035); } }));
 
 // 15 — zoom ud: hele væggen

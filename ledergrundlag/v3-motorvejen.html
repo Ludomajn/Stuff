@@ -311,10 +311,10 @@ S({ dur: 9, speed: 110, day: 0, build(el) {
   slapPatch(s.patch, t, 4.9, 'translateX(-50%) rotate(-8deg)');
 } });
 
-// 3 — hvad du er en del af
+// 3 — spillende træner
 S({ dur: 6, speed: 110, day: 0, build(el) {
-  return sign(el, '', [['Før vi når til salgstalen:', 'sm'], ['Hvad du er en del af', 'lg']]);
-}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.6, .6); } });
+  return sign(el, '', [['Jeg er spillende træner', 'lg'], ['på holdet!', 'lg hl'], ['Og jeg vil gerne starte med at være ærlig.', 'sm']]);
+}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .5); } });
 
 // 4 — kaos: idé-skilte suser forbi
 const IDEAS = ['NY IDÉ!', 'HVAD NU HVIS…', 'PLAN B', 'PLAN C', 'PIVOT!', 'NYT PROJEKT?', 'VENT – BEDRE:', 'PRIORITET #1', 'NY PRIO #1',
@@ -324,7 +324,7 @@ S({ dur: 9, speed: 165, day: 0, build(el) {
   const ideas = IDEAS.map(t => { const d = mk(el, 'sign y idea'); d.textContent = t; return d; });
   const o = sign(el, '', [
     ['<svg width="150" height="132" viewBox="0 0 150 132" style="vertical-align:-18px;margin-right:30px"><path d="M75 8 L142 124 L8 124 Z" fill="#fff" stroke="#D52B1E" stroke-width="16" stroke-linejoin="round"/><text x="75" y="112" text-anchor="middle" font-size="80" font-weight="900" fill="#111" font-family="Overpass">!</text></svg>Du vil opleve kaos', 'lg'],
-    ['Frustration over min struktur.', 'sm'], ['Og over mine <span class="hl">(voldsomt)</span> mange idéer.', 'sm']]);
+    ['Og blive frustreret over min manglende struktur', 'sm'], ['samt mine mange idéer.', 'sm']]);
   o.ideas = ideas; return o;
 }, render(t, s, out) {
   const sd = st.D - st.D0;
@@ -340,7 +340,7 @@ S({ dur: 9, speed: 165, day: 0, build(el) {
 
 // 5 — 200 km/t
 S({ dur: 8, speed: t => t < .6 ? 165 : 200, day: 0, build(el) {
-  const o = sign(el, '', [['Indimellem føles det som at køre', 'sm'], ['200 km/t', 'lg'], ['på motorvejen for at følge med.', 'sm']]);
+  const o = sign(el, '', [['Indimellem føles det som at køre', 'sm'], ['200 km/t', 'lg'], ['på motorvejen bare for at følge med.', 'sm']]);
   o.ls[1].style.fontSize = '150px';
   o.r = mk(el, '', 'position:absolute;left:0;top:0;width:330px;height:330px;box-sizing:border-box;border-radius:50%;background:#fff;border:38px solid #D52B1E;display:flex;align-items:center;justify-content:center;color:#111;font-weight:900;font-size:118px;letter-spacing:-.03em;box-shadow:0 30px 70px rgba(0,0,0,.55);padding-top:14px;', '200');
   return o;
@@ -355,21 +355,21 @@ S({ dur: 8.5, speed: 140, day: 0, tunnel(t) {
   const f = eio(prog(t, .9, 2.0)), l = eio(prog(t, 4.3, .8));
   return lerp(1900, 440, f * (1 - l));
 }, sway(t) { return Math.sin((t - 4.3) * 1.9) * 1.7 * eio(prog(t, 4.3, .8)); }, build(el) {
-  const o = sign(el, '', [['Du vil nok også opleve, at jeg har', 'sm'], ['Hyperfokus', 'lg'], ['– eller mangler det totalt.', 'sm hl']]);
-  o.ls[2].style.fontSize = '64px'; o.ls[2].style.fontWeight = '900';
+  const o = sign(el, '', [['Du vil nok også opleve, at jeg kan', 'sm'], ['have en tendens til at være', 'sm'], ['hyperfokuseret', 'lg'], ['– eller mangle det totalt.', 'sm hl']]);
+  o.ls[3].style.fontSize = '64px'; o.ls[3].style.fontWeight = '900';
   return o;
 }, render(t, s, out) {
   const l = eio(prog(t, 4.3, .8));
   place(s.s, signK(t, out), 960, 300, ` rotate(${Math.sin(t * 2.3) * 3 * l}deg)`);
-  lines(s.ls.slice(0, 2), t, 1.6, .6);
-  const p = eo(prog(t, 4.6, .6)); s.ls[2].style.opacity = p;
-  s.ls[2].style.transform = `translateX(${Math.sin(t * 9) * 14 * l}px) scale(${lerp(1.4, 1, p)})`;
+  lines(s.ls.slice(0, 3), t, 1.5, .5);
+  const p = eo(prog(t, 4.6, .6)); s.ls[3].style.opacity = p;
+  s.ls[3].style.transform = `translateX(${Math.sin(t * 9) * 14 * l}px) scale(${lerp(1.4, 1, p)})`;
 } });
 
 // 7 — Jeg beklager (gult vejarbejdsskilt)
-S({ dur: 7, speed: 80, day: 0, build(el) {
-  return sign(el, 'y', [['Det ved du sikkert allerede.', 'sm'], ['Jeg beklager.', 'lg'], ['Jeg aner simpelthen ikke, hvordan jeg fixer det.', 'sm']]);
-}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.5, .8); } });
+S({ dur: 6, speed: 80, day: 0, build(el) {
+  return sign(el, 'y', [['Jeg beklager.', 'lg'], ['Jeg aner simpelthen ikke, hvordan jeg fixer det.', 'sm']]);
+}, render(t, s, out) { place(s.s, signK(t, out)); lines(s.ls, t, 1.4, .9); } });
 
 // 8 — MEN: fuld opbremsning
 S({ dur: 3.5, speed: 0, brake: 7, day: 0, fadeOut: .4, flash(t) { return .45 * Math.exp(-t * 2.2); }, build(el) {
@@ -383,30 +383,32 @@ S({ dur: 3.5, speed: 0, brake: 7, day: 0, fadeOut: .4, flash(t) { return .45 * M
 } });
 
 // 9 — række hånden op (daggry begynder)
-S({ dur: 12, speed: 60, day: .3, build(el) {
-  return sign(el, '', [['Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'sm'], ['at du får et sted, hvor det føles helt naturligt', 'sm'],
+S({ dur: 14, speed: 60, day: .3, build(el) {
+  return sign(el, '', [['Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'sm'], ['at du føler, det er helt naturligt', 'sm'],
     ['at række hånden op og sige:', 'sm'], ['”Jeg har muligvis', 'lg'], ['verdens dårligste idé.”', 'lg']]);
 }, render(t, s, out) {
   if (!s.styled) { s.styled = 1; s.ls.forEach(l => { if (l.classList.contains('sm')) l.style.fontSize = '42px'; else { l.style.fontSize = '96px'; l.style.color = '#FFD21F'; } }); s.ls[3].style.marginTop = '14px'; }
-  place(s.s, signK(t, out)); lines(s.ls.slice(0, 3), t, 1.6, .9); lines(s.ls.slice(3), t, 5.4, .6);
+  place(s.s, signK(t, out), 960, 270); lines(s.ls.slice(0, 3), t, 1.6, .9); lines(s.ls.slice(3), t, 5.4, .6);
+  if (!s.y) s.y = sign(s.s.parentNode, 'y', [['– og føler <b>begejstringen</b>, når vi', 'sm'], ['sammen har gjort det til en realitet.', 'sm']]);
+  place(s.y.s, signK(t, out, 8.6, 1.4), 960, 700, '', 1100, 200, 1.4); lines(s.y.ls, t, 9.6, .5);
 } });
 
 // 10 a/b/c
-[['Du skal føle', 'begejstringen', 'når du lykkes.', .42], ['Du skal mærke', 'opbakningen', 'når du tør tage en chance.', .52],
- ['Når det ikke føles sjovt:', 'dit hold er der for dig', 'Det skal du vide.', .6]].forEach(([a, b, c, day], i) => S({
-  dur: i === 2 ? 5.5 : 5, speed: 90, day, build(el) { return sign(el, '', [[a, 'sm'], [b, 'lg hl'], [c, 'sm']]); },
+[['Her på holdet', 'vinder vi sammen', 'Den begejstring, du føler, når du lykkes, føler du med os alle.', .42], ['Du skal mærke', 'opbakningen', 'når du tør tage en chance.', .52],
+ ['Og når det ikke føles sjovt, skal du vide, at', 'dit hold er der for dig', '', .6]].forEach(([a, b, c, day], i) => S({
+  dur: [7, 5, 5.5][i], speed: 90, day, build(el) { return sign(el, '', [[a, 'sm'], [b, 'lg hl'], [c, 'sm']]); },
   render(t, s, out) { place(s.s, signK(t, out, .1, 1.5)); lines(s.ls, t, 1.3, .45); },
 }));
 
 // 11 — en smule presset
 S({ dur: 12, speed: 125, day: .66, build(el) {
   const o = sign(el, '', [['Du skal til gengæld også forberede dig på at blive', 'sm'], ['en smule presset.', 'lg'],
-    ['Du er mega god i dag. Men jeg har en naiv tiltro til,', 'sm'], ['at du faktisk kan blive <span class="hl">lidt</span> bedre.', 'sm']]);
+    ['Du er helt sikkert mega god i dag, og jeg er stolt', 'sm'], ['af at have dig som en del af holdet. Men jeg har en naiv', 'sm'], ['tiltro til, at du faktisk kan blive <span class="hl">lidt</span> bedre.', 'sm']]);
   o.ls[2].style.marginTop = '18px';
   o.patch = mk(o.s, 'patch', 'right:-40px;top:-46px;font-size:76px;', '+ LIDT');
   return o;
 }, render(t, s, out) {
-  place(s.s, signK(t, out)); lines(s.ls.slice(0, 2), t, 1.5, .6); lines(s.ls.slice(2), t, 4.8, 1.0);
+  place(s.s, signK(t, out)); lines(s.ls.slice(0, 2), t, 1.5, .6); lines(s.ls.slice(2), t, 4.6, .9);
   slapPatch(s.patch, t, 8.4, 'rotate(7deg)');
 } });
 

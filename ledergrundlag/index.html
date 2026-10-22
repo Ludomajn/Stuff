@@ -178,15 +178,14 @@ S({ dur: 9, build(el) {
   dot(cx, cy, 24 * (p > 0 ? eback(p) : 0), C.accent);
 } });
 
-// 3 — hvad du er en del af
+// 3 — spillende træner
 S({ dur: 6, build(el) {
   return {
-    a: words(el, 'Før vi når til salgstalen,', 'mid muted', 'position:absolute;left:160px;top:330px;font-size:56px;'),
-    b: words(el, 'er det på sin plads, at du forstår,', 'mid muted', 'position:absolute;left:160px;top:405px;font-size:56px;'),
-    c: words(el, 'hvad du er en del af.', 'big', 'position:absolute;left:160px;top:520px;font-size:140px;'),
+    a: words(el, 'Jeg er *spillende* *træner* på holdet!', 'big', 'position:absolute;left:160px;right:160px;top:320px;font-size:130px;'),
+    b: words(el, 'Og jeg vil gerne starte med at være ærlig.', 'mid muted', 'position:absolute;left:160px;top:660px;font-size:56px;'),
   };
 }, render(t, s) {
-  reveal(s.a.spans, t, .3, .09); reveal(s.b.spans, t, 1.1, .08); reveal(s.c.spans, t, 2.4, .1, .7, 50);
+  reveal(s.a.spans, t, .3, .1, .7, 50); reveal(s.b.spans, t, 2.6, .08);
 } });
 
 // 4 — kaos og (voldsomt) mange idéer
@@ -207,8 +206,8 @@ S({ dur: 9, build(el) {
       at: 1.0 + 6.6 * Math.sqrt(i / IDEAS.length) };
   });
   const title = words(el, 'Du vil opleve kaos.', 'big', 'position:absolute;left:160px;top:350px;font-size:150px;text-shadow:0 0 60px #0E0F13,0 0 30px #0E0F13;');
-  const sub1 = words(el, 'Frustration over min struktur.', 'mid', 'position:absolute;left:160px;top:560px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
-  const sub2 = words(el, 'Og over mine _(voldsomt)_ mange idéer.', 'mid', 'position:absolute;left:160px;top:635px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
+  const sub1 = words(el, 'Og blive frustreret over min manglende struktur', 'mid', 'position:absolute;left:160px;top:560px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
+  const sub2 = words(el, 'samt mine mange idéer.', 'mid', 'position:absolute;left:160px;top:635px;font-size:54px;text-shadow:0 0 30px #0E0F13;');
   const ctr = mk(el, '', 'position:absolute;right:110px;top:80px;font-size:40px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;');
   return { ideas, title, sub1, sub2, ctr };
 }, render(t, s) {
@@ -258,7 +257,7 @@ S({ dur: 8, build(el) {
   const unit = svg(g, 'text', { x: cx, y: cy + 222, 'text-anchor': 'middle', fill: C.muted, 'font-size': 34, 'font-weight': 500 }); unit.textContent = 'km/t';
   const l1 = words(el, 'Indimellem vil det føles som at køre', 'mid muted', 'position:absolute;left:1060px;top:330px;width:820px;font-size:52px;');
   const l2 = mk(el, 'big acc', 'position:absolute;left:1052px;top:470px;font-size:190px;transform-origin:left center;', '200 km/t');
-  const l3 = words(el, 'på motorvejen for at følge med.', 'mid muted', 'position:absolute;left:1060px;top:700px;width:760px;font-size:52px;');
+  const l3 = words(el, 'på motorvejen bare for at følge med.', 'mid muted', 'position:absolute;left:1060px;top:700px;width:760px;font-size:52px;');
   return { g, arc, L, needle, num, cx, cy, l1, l2, l3 };
 }, render(t, s) {
   // fartstriber: position = integral af hastighed
@@ -278,23 +277,23 @@ S({ dur: 8, build(el) {
 } });
 
 // 6 — hyperfokus / mangler det totalt
-const FIELD = (() => { const r = rng(9); return Array.from({ length: 46 }, () => ({ x: 1010 + r() * 820, y: 140 + r() * 800, r: 5 + r() * 4, f: 2 + r() * 6, ph: r() * TAU })); })();
+const FIELD = (() => { const r = rng(9); return Array.from({ length: 40 }, () => ({ x: 1180 + r() * 650, y: 140 + r() * 800, r: 5 + r() * 4, f: 2 + r() * 6, ph: r() * TAU })); })();
 S({ dur: 8.5, build(el) {
-  const a = words(el, 'Du vil nok også opleve, at jeg har', 'mid muted', 'position:absolute;left:140px;top:320px;width:850px;font-size:50px;');
-  const b = words(el, 'hyperfokus.', 'big', 'position:absolute;left:140px;top:400px;font-size:150px;');
-  const c = mk(el, 'big acc', 'position:absolute;left:140px;top:600px;font-size:78px;white-space:nowrap;');
+  const a = words(el, 'Du vil nok også opleve, at jeg kan have en tendens til at være', 'mid muted', 'position:absolute;left:140px;top:250px;width:900px;font-size:50px;');
+  const b = words(el, 'hyperfokuseret.', 'big', 'position:absolute;left:140px;top:405px;font-size:118px;');
+  const c = mk(el, 'big acc', 'position:absolute;left:140px;top:590px;font-size:74px;white-space:nowrap;');
   const r = rng(3);
-  const letters = [...'– eller mangler det totalt.'].map(ch => { const s = span(c, ch === ' ' ? ' ' : ch); s.dx = (r() - .5) * 160; s.dy = (r() - .5) * 160; s.rot = (r() - .5) * 60; return s; });
+  const letters = [...'– eller mangle det totalt.'].map(ch => { const s = span(c, ch === ' ' ? ' ' : ch); s.dx = (r() - .5) * 160; s.dy = (r() - .5) * 160; s.rot = (r() - .5) * 60; return s; });
   return { a, b, letters };
 }, render(t, s) {
   reveal(s.a.spans, t, .3, .07); reveal(s.b.spans, t, 1.0, .1, .7, 40);
   const focus = eio(prog(t, .8, 2.5)), lose = eio(prog(t, 4.3, .8));
-  const fx = 1420, fy = 540;
+  const fx = 1510, fy = 540;
   // spotlight
   glow(fx, fy, lerp(520, 170, focus), C.accent2, .30 * focus * (1 - lose));
   // spredte lys
   for (let k = 0; k < 7; k++) {
-    const x = 1420 + 400 * Math.sin(t * (1.1 + k * .23) + k * 1.7), y = 540 + 360 * Math.sin(t * (1.5 + k * .19) + k * 2.9);
+    const x = 1510 + 320 * Math.sin(t * (1.1 + k * .23) + k * 1.7), y = 540 + 360 * Math.sin(t * (1.5 + k * .19) + k * 2.9);
     glow(x, y, 110, C.accent2, .22 * lose);
   }
   FIELD.forEach((d, i) => {
@@ -311,14 +310,13 @@ S({ dur: 8.5, build(el) {
 } });
 
 // 7 — Jeg beklager
-S({ dur: 7, build(el) {
+S({ dur: 6, build(el) {
   return {
-    a: words(el, 'Det ved du sikkert allerede.', 'mid muted', 'position:absolute;left:0;right:0;top:330px;text-align:center;font-size:52px;'),
     b: words(el, 'Jeg beklager.', 'big', 'position:absolute;left:0;right:0;top:420px;text-align:center;font-size:160px;'),
     c: words(el, 'Jeg aner simpelthen ikke, hvordan jeg fixer det.', 'mid', 'position:absolute;left:0;right:0;top:640px;text-align:center;font-size:52px;'),
   };
 }, render(t, s) {
-  reveal(s.a.spans, t, .3, .08); reveal(s.b.spans, t, 1.4, .15, .8, 40); reveal(s.c.spans, t, 3.0, .08);
+  reveal(s.b.spans, t, .3, .15, .8, 40); reveal(s.c.spans, t, 1.8, .08);
 } });
 
 // 8 — MEN
@@ -332,13 +330,14 @@ S({ dur: 3.5, fadeIn: 0, fadeOut: 0, build(el) {
 } });
 
 // 9 — række hånden op
-S({ dur: 12, build(el) {
-  const top = words(el, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du får et sted, hvor det føles helt naturligt at række hånden op og sige:',
+S({ dur: 14, build(el) {
+  const top = words(el, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du føler, det er helt naturligt at række hånden op og sige:',
     'mid muted', 'position:absolute;left:210px;right:210px;top:110px;text-align:center;font-size:46px;');
   const bub = mk(el, 'bubble', 'left:960px;top:440px;', '”Jeg har muligvis verdens dårligste idé.”');
-  return { top, bub };
+  const c = words(el, '– og føler *begejstringen,* når vi *sammen* har gjort det til en realitet.', 'mid', 'position:absolute;left:0;right:0;top:920px;text-align:center;font-size:50px;');
+  return { top, bub, c };
 }, render(t, s) {
-  reveal(s.top.spans, t, .3, .1, .5, 20);
+  reveal(s.top.spans, t, .3, .1, .5, 20); reveal(s.c.spans, t, 8.4, .08, .5, 20);
   const n = 9, gap = 120, y0 = 830;
   const rise = prog(t, 4.0, .8), up = rise > 0 ? eback(rise) : 0;
   const bp = prog(t, 4.9, .6);
@@ -349,8 +348,8 @@ S({ dur: 12, build(el) {
       glow(x, y, 90, C.accent, .3 * up);
       dot(x, y, 24 * on, C.accent);
     } else {
-      const cheer = eo(prog(t, 7.0 + Math.abs(i - 4) * .12, .5));
-      const bounce = Math.max(0, Math.sin((t - 7.0 - Math.abs(i - 4) * .12) * 6)) * 14 * cheer * clamp(9.5 - t);
+      const cheer = eo(prog(t, 9.6 + Math.abs(i - 4) * .12, .5));
+      const bounce = Math.max(0, Math.sin((t - 9.6 - Math.abs(i - 4) * .12) * 6)) * 14 * cheer * clamp(12.5 - t);
       dot(x, y0 - bounce, 16, C.ink, .8 * on);
     }
   }
@@ -360,11 +359,20 @@ S({ dur: 12, build(el) {
 
 // 10a — begejstring
 const CONFETTI = (() => { const r = rng(21); return Array.from({ length: 90 }, () => ({ a: r() * TAU, v: 300 + r() * 650, r: 4 + r() * 7, c: [C.accent, C.accent2, C.ink][Math.floor(r() * 3)] })); })();
-S({ dur: 5, build(el) {
-  return { a: words(el, 'Du skal føle *begejstringen,* når du lykkes.', 'big', 'position:absolute;left:0;right:0;top:200px;text-align:center;font-size:96px;') };
+S({ dur: 7, build(el) {
+  return {
+    a: words(el, 'Her på holdet *vinder* *vi* *sammen.*', 'big', 'position:absolute;left:0;right:0;top:120px;text-align:center;font-size:110px;'),
+    b: words(el, 'Den begejstring, du føler, når du lykkes, føler du med os alle.', 'mid', 'position:absolute;left:0;right:0;top:270px;text-align:center;font-size:52px;'),
+  };
 }, render(t, s) {
-  reveal(s.a.spans, t, .2, .09, .6, 30);
-  const cx = 960, cy = 700, b = t - 1.5;
+  reveal(s.a.spans, t, .2, .1, .6, 30); reveal(s.b.spans, t, 1.6, .07);
+  const cx = 960, cy = 730, b = t - 3.6;
+  TEAM.forEach((d, i) => {
+    const a = d.a + t * .06, x = cx + Math.cos(a) * 210 * d.k, y = cy + Math.sin(a) * 210 * d.k;
+    const hit = b > .3 ? Math.exp(-(b - .3) * 1.4) : 0;
+    glow(x, y, 70, C.accent2, .6 * hit);
+    dot(x, y, d.r * (1 + .4 * hit), C.ink, .85 * eio(prog(t, .4 + i * .06, .8)));
+  });
   const pop = b > 0 ? 1 + .45 * Math.exp(-b * 5) * Math.cos(b * 18) : eo(prog(t, 0, .6));
   if (b > 0) CONFETTI.forEach(p => {
     const x = cx + Math.cos(p.a) * p.v * (1 - Math.exp(-b * 2.2)) / 2.2 * 1.3;
@@ -415,7 +423,7 @@ S({ dur: 5.5, build(el) {
 S({ dur: 12, build(el) {
   const a = words(el, 'Du skal til gengæld også forberede dig på at blive', 'mid muted', 'position:absolute;left:140px;top:170px;width:960px;font-size:50px;');
   const b = words(el, 'en smule presset.', 'big', 'position:absolute;left:140px;top:310px;font-size:128px;');
-  const c = words(el, 'Du er helt sikkert mega god i dag. Men jeg har en naiv tiltro til, at du faktisk kan blive _lidt_ bedre.', 'mid', 'position:absolute;left:140px;top:560px;width:920px;font-size:52px;');
+  const c = words(el, 'Du er helt sikkert mega god i dag, og jeg er stolt af at have dig som en del af holdet. Men jeg har en naiv tiltro til, at du faktisk kan blive _lidt_ bedre.', 'mid', 'position:absolute;left:140px;top:540px;width:960px;font-size:46px;');
   const base = 900, x = 1300, w = 300;
   const bar = mk(el, '', `position:absolute;left:${x}px;top:0;width:${w}px;height:1px;background:var(--ink);border-radius:10px 10px 0 0;transform-origin:bottom;`);
   const plus = mk(el, '', `position:absolute;left:${x}px;width:${w}px;height:1px;background:var(--accent);border-radius:10px 10px 0 0;transform-origin:bottom;`);
@@ -431,7 +439,7 @@ S({ dur: 12, build(el) {
   s.bar.style.top = (s.base - hb) + 'px'; s.bar.style.height = hb + 'px';
   s.lab1.style.top = (s.base - hb + 30) + 'px'; s.lab1.style.opacity = eo(prog(t, 3.8, .5));
   s.lab0.style.opacity = s.baseL.style.opacity = eo(prog(t, 2.6, .5));
-  reveal(s.c.spans, t, 4.4, .07, .5, 20);
+  reveal(s.c.spans, t, 4.2, .06, .5, 20);
   const top = s.base - 470;
   s.dash.style.top = (top - 100) + 'px'; s.dash.style.opacity = eo(prog(t, 7.6, .5)) * (1 - eo(prog(t, 9.0, .6)) * .6);
   const hp = 100 * eio(prog(t, 8.2, 1.2));
