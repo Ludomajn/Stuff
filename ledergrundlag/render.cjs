@@ -1,6 +1,7 @@
 // Renderer index.html frame-for-frame til MP4 (1920x1080, 30 fps).
 // Brug:  node render.cjs [--in side.html] [output.mp4]
 //        node render.cjs [--in side.html] --stills 3,12.5,40 [mappe]   (PNG-stillbilleder til gennemsyn)
+//        node render.cjs [--in side.html] --frames 0,1000 del1.mp4      (kun et frame-interval, til parallel rendering)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -10,6 +11,8 @@ const args = process.argv.slice(2);
 const inIdx = args.indexOf('--in');
 const input = inIdx >= 0 ? args.splice(inIdx, 2)[1] : 'index.html';
 const stillsIdx = args.indexOf('--stills');
+const frIdx = args.indexOf('--frames');
+const range = frIdx >= 0 ? args.splice(frIdx, 2)[1].split(',').map(Number) : null;
 
 (async () => {
   const browser = await chromium.launch();
@@ -31,11 +34,12 @@ const stillsIdx = args.indexOf('--stills');
 
   const out = args[0] || path.join(__dirname, 'ledergrundlag.mp4');
   const frames = Math.ceil(total * FPS);
+  const [f0, f1] = range ? [range[0], Math.min(range[1], frames)] : [0, frames];
   console.log(`Renderer ${frames} frames (${total}s) -> ${out}`);
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'png', '-i', '-',
     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-preset', 'slow', '-movflags', '+faststart', out],
     { stdio: ['pipe', 'inherit', 'inherit'] });
-  for (let f = 0; f < frames; f++) {
+  for (let f = f0; f < f1; f++) {
     await page.evaluate(t => window.renderAt(t), f / FPS);
     const buf = await page.screenshot({ type: 'png' });
     if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
