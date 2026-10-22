@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledergrundlag – Level Up</title>
+<style>
+  @font-face { font-family: "Press Start 2P"; src: url(fonts/PressStart2P.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "VT323"; src: url(fonts/VT323.woff2) format("woff2"); font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage { width: 1920px; height: 1080px; flex: none; position: relative; overflow: hidden; background: #000; transform-origin: center; color: #FCFCFC; }
+  #cv { position: absolute; inset: 0; image-rendering: pixelated; }
+  #layer { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .px { position: absolute; font-family: "Press Start 2P", monospace; text-shadow: 6px 6px 0 #000; white-space: nowrap; line-height: 1.25; }
+  .vt { font-family: "VT323", monospace; }
+  .ctr { left: 0; right: 0; text-align: center; }
+  .yel { color: #FCD000; } .red { color: #FF3B5C; } .grn { color: #5CF07C; } .pnk { color: #FF7BAA; } .blu { color: #6CC8FC; }
+  #hud { position: absolute; left: 60px; right: 60px; top: 34px; display: flex; justify-content: space-between; font-family: "Press Start 2P", monospace; font-size: 26px; text-shadow: 4px 4px 0 #000; }
+  #hud span b { color: #FCD000; font-weight: normal; }
+  #dlg {
+    position: absolute; left: 150px; right: 150px; bottom: 44px; min-height: 220px; box-sizing: border-box; padding: 26px 40px;
+    background: #000; border: 6px solid #FCFCFC; box-shadow: 0 0 0 6px #000, inset 0 0 0 6px #000, inset 0 0 0 9px #555; display: none;
+  }
+  #dlg .who { font-family: "Press Start 2P", monospace; font-size: 22px; color: #FCD000; margin-bottom: 14px; }
+  #dlg .txt { font-family: "VT323", monospace; font-size: 58px; line-height: 1.0; color: #FCFCFC; }
+  #dlg .cur { display: inline-block; width: .45em; height: .8em; background: #FCFCFC; vertical-align: -2px; margin-left: 4px; }
+  .box { position: absolute; background: #000; border: 6px solid #FCFCFC; box-shadow: 0 0 0 6px #000; box-sizing: border-box; }
+  #crt { position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(rgba(0,0,0,.16) 0 2px, transparent 2px 4px), radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,.45) 100%); }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <canvas id="cv" width="1920" height="1080"></canvas>
+  <div id="layer"></div>
+  <div id="hud"><span>DU <b>×1</b></span><span id="score">SCORE 000000</span><span>WORLD <b>1-1</b></span><span id="tid">TID 135</span></div>
+  <div id="dlg"><div class="who">TRÆNER</div><div class="txt"></div></div>
+  <div id="crt"></div>
+</div></div>
+<script src="engine.js"></script>
+<script>
+const { clamp, prog, lerp, eo, eio, eback, rng, mk, TAU } = E;
+const stage = document.getElementById('stage'), layer = document.getElementById('layer');
+const ctx = document.getElementById('cv').getContext('2d');
+const lc = document.createElement('canvas'); lc.width = 480; lc.height = 270;
+const lx = lc.getContext('2d');
+const hudEl = document.getElementById('hud'), scoreEl = document.getElementById('score'), tidEl = document.getElementById('tid');
+const dlg = document.getElementById('dlg'), dlgTxt = dlg.querySelector('.txt');
+const AUDIO_END = 134.5, GY = 178;
+const C = { sky: '#5C94FC', night: '#0D0B2B', gnd: '#C84C0C', gndD: '#7C2C00', grass: '#3CBC3C', hill: '#00A844', w: '#FCFCFC', k: '#000000',
+  y: '#FCD000', o: '#F8A000', p: '#FF6B9A', r: '#E40058', b: '#3CBCFC', g: '#5CF07C', v: '#8C4CFC', skin: '#FCC4A0', gr: '#7C7C7C' };
+
+// ---------- pixel-sprites ----------
+const MAN = ['..HHHH..', '.HHHHHH.', '..SSSS..', '.SESSES.', '..SSSS..', '.BBBBBB.', 'SBBBBBBS', '..BBBB..', '..L..L..', '..L..L..'];
+const MAN_RUN = MAN.slice(0, 8).concat(['.L....L.', 'L......L']);
+const MAN_UP = ['S.HHHH.S', 'SHHHHHHS', '..SSSS..', '.SESSES.', '..SSSS..', '.BBBBBB.', '..BBBB..', '..BBBB..', '..L..L..', '.L....L.'];
+const COACH = ['.HHHH...', 'HHHHHHH.', '..SSSS..', '.SESSES.', '..SSSS..', '.BBBBBB.', 'SBBRRBBS', '..BRRB..', '..L..L..', '..L..L..'];
+const QB = ['KKKKKKKKKKKK', 'KOOOOOOOOOOK', 'KOOOWWWWOOOK', 'KOOWWOOWWOOK', 'KOOOOOOWWOOK', 'KOOOOOWWOOOK', 'KOOOOWWOOOOK', 'KOOOOWWOOOOK', 'KOOOOOOOOOOK', 'KOOOOWWOOOOK', 'KOOOOOOOOOOK', 'KKKKKKKKKKKK'];
+const COIN = ['.YYYY.', 'YYWYYY', 'YYWYYY', 'YYWYYY', 'YYWYYY', '.YYYY.'];
+const HEART = ['.RR.RR.', 'RRRRRRR', 'RRRRRRR', '.RRRRR.', '..RRR..', '...R...'];
+const BLOB = ['..PPPP..', '.PPPPPP.', 'PPWKPWKP', 'PPPPPPPP', 'PPPPPPPP', '.PP..PP.'];
+const BULB = ['.YYYY.', 'YWYYYY', 'YYYYYY', 'YYYYYY', '.YYYY.', '..GG..', '..GG..'];
+const FLOPPY = ['BBBBBBBBBBB.', 'BBWWWWWWWBBB', 'BBWWWWWWWBBB', 'BBWWWWWWWBBB', 'BBBBBBBBBBBB', 'BBBBBBBBBBBB', 'BBGGGGGGGGBB', 'BBGGKKGGGGBB', 'BBGGKKGGGGBB', 'BBGGGGGGGGBB', 'BBBBBBBBBBBB'];
+const PAL_Q = { K: '#7C3C00', O: C.o, W: '#FCE4A0' };
+const pers = (body, hair = '#5C3C1C') => ({ H: hair, S: C.skin, E: C.k, B: body, L: '#2C2C2C', R: C.r });
+const DU = pers(C.p, '#3C1C0C'), TR = { ...pers(C.y, C.r), R: C.r };
+const TEAM = [pers(C.b), pers(C.g, '#FCD8A0'), pers(C.v), pers(C.o, '#1C1C1C'), pers('#3CF0D0'), pers(C.w, '#8C4C1C')];
+
+function spr(map, x, y, pal, s = 2, flip = false) {
+  for (let r = 0; r < map.length; r++) for (let c = 0; c < map[r].length; c++) {
+    const ch = map[r][flip ? map[r].length - 1 - c : c];
+    if (ch === '.' || !pal[ch]) continue;
+    lx.fillStyle = pal[ch]; lx.fillRect(Math.round(x + c * s), Math.round(y + r * s), s, s);
+  }
+}
+const person = (x, pal, { pose = MAN, dy = 0, s = 3, flip = false } = {}) => spr(pose, x - 4 * s, GY - 10 * s + dy, pal, s, flip);
+function rect(x, y, w, h, col) { lx.fillStyle = col; lx.fillRect(Math.round(x), Math.round(y), w, h); }
+
+// ---------- baggrunde ----------
+const STARS = (() => { const r = rng(5); return Array.from({ length: 90 }, () => [r() * 480, r() * 170, r() * 6]); })();
+function sky(col) { rect(0, 0, 480, 270, col); }
+function stars(T) { STARS.forEach(([x, y, p]) => { if (Math.sin(T * 3 + p * 5) > -.3) rect(x, y, 1, 1, C.w); }); }
+function clouds(T, speed = 4) {
+  [[40, 40], [200, 26], [360, 52], [520, 34]].forEach(([x, y]) => {
+    const cx = ((x - T * speed) % 560 + 560) % 560 - 60;
+    rect(cx + 6, y, 28, 6, C.w); rect(cx, y + 6, 40, 8, C.w); rect(cx + 10, y - 4, 14, 4, C.w);
+  });
+}
+function hills(off = 0) {
+  [[60, 34], [230, 50], [400, 28]].forEach(([x, h]) => {
+    const cx = ((x - off) % 520 + 520) % 520 - 40;
+    for (let i = 0; i < h; i += 2) { const w = Math.sqrt(h * h - i * i) * 1.6; rect(cx - w, GY - i - 2, w * 2, 2, C.hill); }
+  });
+}
+function ground(off = 0, gap = null) {
+  for (let x = -16; x < 496; x += 16) {
+    const gx = x - (((off % 16) + 16) % 16);
+    if (gap && gx + 16 > gap[0] && gx < gap[1]) continue;
+    rect(gx, GY, 16, 92, C.gnd); rect(gx, GY, 16, 3, C.grass);
+    rect(gx, GY + 10, 16, 1, C.gndD); rect(gx + 8, GY + 3, 1, 7, C.gndD); rect(gx, GY + 20, 16, 1, C.gndD); rect(gx + 2, GY + 11, 1, 9, C.gndD);
+  }
+}
+function day(T, off = 0) { sky(C.sky); clouds(T); hills(off * .3); ground(off); }
+function fireworks(T, at, cx, cy, col, n = 26) {
+  const b = T - at; if (b < 0 || b > 1.8) return;
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU, v = 60 * (1 - Math.exp(-b * 3));
+    if (b > 1.2 && i % 2) continue;
+    rect(cx + Math.cos(a) * v, cy + Math.sin(a) * v + 12 * b * b, 2, 2, col);
+  }
+}
+let fx = { shake: 0, glitch: 0, flash: 0, rewind: 0 };
+function blit(T) {
+  ctx.imageSmoothingEnabled = false; ctx.globalAlpha = E.G.alpha;
+  const sx = fx.shake ? Math.round(Math.sin(T * 70) * fx.shake) * 4 : 0, sy = fx.shake ? Math.round(Math.cos(T * 55) * fx.shake) * 4 : 0;
+  if (fx.glitch > 0) {
+    const r = rng(Math.floor(T * 12));
+    for (let y = 0; y < 270; y += 9) {
+      const off = r() < fx.glitch * .6 ? Math.round((r() - .5) * 40 * fx.glitch) : 0;
+      ctx.drawImage(lc, 0, y, 480, 9, (off) * 4 + sx, y * 4 + sy, 1920, 36);
+    }
+    ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = .45 * fx.glitch * E.G.alpha;
+    ctx.fillStyle = '#FF0040'; ctx.fillRect(12, 0, 1920, 1080);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = E.G.alpha;
+  } else ctx.drawImage(lc, sx, sy, 1920, 1080);
+  if (fx.rewind > 0) {
+    const r = rng(Math.floor(T * 20));
+    ctx.globalAlpha = .5 * fx.rewind * E.G.alpha; ctx.fillStyle = '#FFFFFF';
+    for (let i = 0; i < 6; i++) ctx.fillRect(0, r() * 1080, 1920, 3 + r() * 10);
+    ctx.globalAlpha = E.G.alpha;
+  }
+  if (fx.flash > 0) { ctx.globalAlpha = fx.flash * E.G.alpha; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 1920, 1080); }
+  ctx.globalAlpha = 1;
+  fx = { shake: 0, glitch: 0, flash: 0, rewind: 0 };
+}
+
+// ---------- tekst ----------
+function px(el, html, css, cls = '') { return mk(el, 'px ' + cls, css, html); }
+function pop(el, T, at, d = .3) { const p = prog(T, at, d); el.style.opacity = p > 0 ? 1 : 0; el.style.transform = `scale(${p > 0 ? eback(p) : .01})`; }
+function blink(el, T, at, rate = 3) { el.style.opacity = T >= at && Math.sin((T - at) * rate * TAU) > -.2 ? 1 : 0; }
+function type(el, T, at, to, full) { const n = Math.round(full.length * clamp((T - at) / (to - at))); el.textContent = full.slice(0, n); el.style.opacity = n ? 1 : 0; }
+function say(T, text, at, to) {
+  if (!text) { dlg.style.display = 'none'; return; }
+  dlg.style.display = T >= at - .3 ? 'block' : 'none'; dlg.style.opacity = E.G.alpha;
+  const n = Math.round(text.length * clamp((T - at) / (to - at)));
+  dlgTxt.innerHTML = '';
+  dlgTxt.appendChild(document.createTextNode(text.slice(0, n)));
+  if (n < text.length || Math.sin(T * 6) > 0) mk(dlgTxt, 'cur');
+}
+function hud(T, on) {
+  hudEl.style.display = on ? 'flex' : 'none'; hudEl.style.opacity = E.G.alpha;
+  const score = Math.floor(T * 25) * 10 + (T > 68.6 ? 1000 : 0) + (T > 106.2 ? 2000 : 0) + [115.85, 117.22, 119.41].filter(a => T > a + .4).length * 500;
+  scoreEl.innerHTML = `SCORE <b>${String(score).padStart(6, '0')}</b>`;
+  tidEl.innerHTML = `TID <b>${Math.max(0, Math.ceil(AUDIO_END - T))}</b>`;
+}
+
+// ---------- scener (absolutte tider fra talen) ----------
+const scenes = [];
+function S(start, def) {
+  scenes.push(Object.assign({ start, fadeIn: .3, fadeOut: .3 }, def, {
+    render(lt, s, out) { const T = start + lt; lx.clearRect(0, 0, 480, 270); def.draw(T, s); hud(T, !!def.hud); if (!def.talk) say(T, null); blit(T); }
+  }));
+}
+const LINE = [108, 152, 196, 240, 284, 328, 372];
+function lineup(T, { du = true, hop = 0, skip = -1 } = {}) {
+  LINE.forEach((x, i) => {
+    if (i === skip) return;
+    const ph = Math.max(0, Math.sin(T * 5 + i * 1.3)) * hop;
+    if (i === 3) { if (du) person(x, DU, { dy: -ph * 6 }); }
+    else person(x, TEAM[i > 3 ? i - 1 : i], { dy: -ph * 6, flip: i > 3 });
+  });
+}
+
+// 1 — titelskærm
+S(0, { fadeIn: .4, build(el) {
+  return { a: px(el, 'HEJ :)', 'top:330px;font-size:150px;', 'ctr yel'), b: px(el, 'PRESS START', 'top:620px;font-size:40px;', 'ctr') };
+}, draw(T, s) { sky(C.night); stars(T); pop(s.a, T, 1.0); blink(s.b, T, .2, 1.5); } });
+
+// 2 — verdens (måske) bedste hold
+const T2 = 'Jeg er glad og stolt over at have dig på verdens, måske, bedste hold.';
+S(1.9, { hud: true, talk: true, build(el) {
+  const t = mk(el, 'px ctr', 'top:150px;font-size:58px;');
+  const v = mk(t, '', 'display:inline-block', 'VERDENS&nbsp;'), m = mk(t, 'yel', 'display:inline-block', '[MÅSKE]&nbsp;'), b = mk(t, '', 'display:inline-block', 'BEDSTE HOLD');
+  const p1 = px(el, 'P1', 'left:942px;top:500px;font-size:24px;', 'pnk');
+  return { v, m, b, p1 };
+}, draw(T, s) {
+  day(T); lineup(T, { hop: 1 });
+  spr(['PPPPP', '.PPP.', '..P..'], 235, 136, { P: C.p }, 2);
+  pop(s.v, T, 4.5); pop(s.m, T, 5.62, .35); if (T > 6.2) blink(s.m, T, 6.2, 2); pop(s.b, T, 7.06);
+  pop(s.p1, T, 2.4);
+  say(T, T2, 2.09, 9.8);
+} });
+
+// 3 — spillende træner
+S(10.4, { hud: true, talk: true, build(el) {
+  return { ban: px(el, 'PLAYER 2 HAS JOINED!', 'top:150px;font-size:48px;', 'ctr grn'), lab: px(el, 'TRÆNER', 'left:1580px;top:530px;font-size:24px;', 'yel') };
+}, draw(T, s) {
+  day(T); lineup(T);
+  const f = prog(T, 11.2, .55), y = lerp(-220, 0, f * f);
+  person(430, TR, { dy: y });
+  if (T > 11.75 && T < 12.3) { const d = (T - 11.75) * 30; rect(410 - d, GY - 4, 6, 4, C.w); rect(444 + d, GY - 4, 6, 4, C.w); fx.shake = 1; }
+  blink(s.ban, T, 10.7, 2.5); pop(s.lab, T, 12.0);
+  say(T, 'Jeg er spillende træner på holdet!', 10.74, 13.4);
+} });
+
+// 4 — ærlig
+S(14.9, { hud: true, talk: true, build(el) { return { ex: px(el, '!', 'left:600px;top:120px;font-size:120px;', 'yel') }; },
+draw(T, s) {
+  sky('#2C1C5C'); stars(T);
+  spr(COACH, 140, 30, TR, 12);
+  pop(s.ex, T, 15.3);
+  say(T, 'Og jeg vil gerne starte med at være ærlig.', 15.18, 17.2);
+} });
+
+// 5 — WORLD 1-1: KAOS
+const BLOCKS = (() => { const r = rng(9); return Array.from({ length: 12 }, (_, i) => ({ x: 30 + r() * 410, y: 30 + r() * 100, at: 19.4 + i * .42, a: (r() - .5) * 3 })); })();
+S(17.8, { hud: true, talk: true, build(el) { return { card: px(el, 'WORLD 1-1<br><br><span class="red">KAOS</span>', 'top:330px;font-size:72px;', 'ctr') }; },
+draw(T, s) {
+  if (T < 19.4) { sky(C.k); pop(s.card, T, 17.9, .25); }
+  else {
+    s.card.style.opacity = 0;
+    day(T);
+    BLOCKS.forEach(b => {
+      if (T < b.at) return;
+      const bump = Math.max(0, 1 - (T - b.at) * 6) * 4;
+      spr(QB, b.x, b.y - bump, PAL_Q, 2);
+      const u = T - b.at - .15;
+      if (u > 0 && u < 2.5) spr(BULB, b.x + 6 + b.a * u * 30, b.y - 14 - 60 * u + 70 * u * u, { Y: C.y, W: C.w, G: C.gr }, 2);
+    });
+    const j = Math.abs(Math.sin(T * 4)) * 30;
+    person(120 + Math.sin(T * 1.7) * 80, DU, { pose: MAN_UP, dy: -j });
+    fx.shake = T > 22.4 ? .6 : 0;
+  }
+  say(T, 'Du vil opleve kaos og vil blive frustreret over min manglende struktur, samt mine mange idéer.', 18.07, 24.6);
+} });
+
+// 6 — 200 km/t
+S(25.6, { hud: true, talk: true, build(el) { return { sp: px(el, '200 KM/T', 'top:150px;font-size:110px;', 'ctr yel') }; },
+draw(T, s) {
+  const v = lerp(40, 520, eio(prog(T, 26.0, 2.0)));
+  const off = (T - 25.6) * v * (.5 + .5 * eio(prog(T, 26.0, 2.0)));
+  sky(C.sky); clouds(T, v / 6); hills(off * .3); ground(off);
+  if (v > 200) for (let i = 0; i < 10; i++) { const y = 40 + i * 13, x = ((i * 97 - T * v * 1.5) % 520 + 520) % 520 - 40; rect(x, y, 30 + i * 3, 2, C.w); }
+  const run = Math.floor(T * 12) % 2 ? MAN_RUN : MAN;
+  person(330, TR, { pose: Math.floor(T * 12 + 1) % 2 ? MAN_RUN : MAN });
+  person(lerp(240, 150, prog(T, 31.5, 1.5)), DU, { pose: run });
+  if (T > 32.4) { rect(150 - 14, GY - 30, 2, 4, C.b); rect(150 - 18, GY - 26, 2, 4, C.b); }
+  pop(s.sp, T, 27.8); if (T > 28.2) s.sp.style.transform = `scale(${1 + Math.sin(T * 30) * .02})`;
+  say(T, 'Indimellem vil det føles som at køre 200 km/t på motorvejen bare for at følge med.', 25.93, 33.0);
+} });
+
+// 7 — FOKUS-MODE / glitch
+S(34.0, { hud: true, talk: true, build(el) {
+  return { f1: px(el, 'FOKUS: 100%', 'top:150px;font-size:56px;', 'ctr grn'), f2: px(el, 'FOKUS: ERROR', 'top:150px;font-size:56px;', 'ctr red') };
+}, draw(T, s) {
+  day(T); person(160, DU);
+  const cy = 90 + Math.sin(T * 3) * 4;
+  spr(COIN, 297, cy, { Y: C.y, W: C.w }, 2);
+  const f = eio(prog(T, 37.8, 1.4)) * (1 - prog(T, 41.2, .3));
+  if (f > 0) {
+    lx.save(); lx.globalAlpha = .9 * f; lx.fillStyle = C.k; lx.beginPath(); lx.rect(0, 0, 480, 270);
+    lx.arc(303, cy + 6, lerp(400, 26, f), 0, TAU, true); lx.fill('evenodd'); lx.restore();
+  }
+  pop(s.f1, T, 38.2); if (T > 41.2) s.f1.style.opacity = 0;
+  if (T > 41.22) { blink(s.f2, T, 41.22, 4); fx.glitch = .5 + .5 * Math.abs(Math.sin(T * 7)); } else s.f2.style.opacity = 0;
+  say(T, 'Du vil nok også opleve, at jeg kan have en tendens til at være hyperfokuseret – eller mangle det totalt.', 34.32, 43.0);
+} });
+
+// 8 — Jeg beklager / fejlvindue
+S(43.3, { hud: true, talk: true, build(el) {
+  const w = mk(el, 'box', 'left:1060px;top:180px;width:700px;height:300px;');
+  mk(w, '', 'background:#FCFCFC;color:#000;font-family:"Press Start 2P";font-size:24px;padding:14px 18px;', 'FEJL');
+  mk(w, 'vt', 'font-size:60px;padding:30px 30px 10px;line-height:1', 'FIX IKKE FUNDET.');
+  mk(w, '', 'margin:10px 30px;display:inline-block;border:4px solid #FCFCFC;font-family:"Press Start 2P";font-size:22px;padding:10px 18px;', 'OK');
+  return { w };
+}, draw(T, s) {
+  sky('#2C1C5C'); stars(T);
+  spr(COACH, 140, 30, TR, 12);
+  if (T > 45 && Math.sin(T * 4) > 0) { rect(250, 60, 4, 8, C.b); rect(246, 66, 12, 6, C.b); }
+  pop(s.w, T, 47.1, .25);
+  say(T, 'Jeg beklager. Jeg aner simpelthen ikke, hvordan jeg fixer det.', 43.56, 48.3);
+} });
+
+// 9 — MEN
+S(50.2, { fadeIn: 0, fadeOut: .15, build(el) { return { m: px(el, 'MEN', 'top:330px;font-size:300px;', 'ctr red') }; },
+draw(T, s) {
+  sky(C.k); fx.flash = T > 50.42 ? Math.exp(-(T - 50.42) * 6) : 0;
+  pop(s.m, T, 50.44, .18); if (T > 50.7) fx.shake = Math.exp(-(T - 50.7) * 4) * 2;
+  s.m.style.translate = fx.shake ? `${Math.sin(T * 70) * fx.shake * 8}px 0` : '0 0';
+} });
+
+// 10 — række hånden op: ?-blokken
+S(52.1, { hud: true, talk: true, build(el) {
+  const b = mk(el, 'box', 'left:560px;top:110px;width:800px;padding:34px 40px;text-align:center;');
+  const t = mk(b, 'vt', 'font-size:74px;line-height:1;color:#FCD000;min-height:148px');
+  return { b, t };
+}, draw(T, s) {
+  day(T); lineup(T, { du: false });
+  const j = prog(T, 59.6, .7), dy = -Math.sin(j * Math.PI) * 44;
+  person(240, DU, { pose: j > 0 && j < 1 ? MAN_UP : MAN, dy });
+  const bump = T > 59.85 && T < 60.1 ? -4 : 0;
+  spr(QB, 228, GY - 92 + bump, PAL_Q, 2);
+  s.b.style.opacity = T > 60.8 ? 1 : 0; s.b.style.transform = `scale(${T > 60.8 ? eback(prog(T, 60.8, .3)) : 0})`;
+  type(s.t, T, 61.2, 64.4, '”JEG HAR MULIGVIS VERDENS DÅRLIGSTE IDÉ”'); s.t.style.opacity = 1;
+  say(T, 'Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for, at du føler, det er helt naturligt at række hånden op og sige:', 52.42, 60.6);
+} });
+
+// 11 — STAGE CLEAR (begejstringen)
+S(65.8, { hud: true, talk: true, build(el) {
+  return { ban: px(el, 'STAGE CLEAR!', 'top:150px;font-size:84px;', 'ctr yel'), pts: px(el, '+1000 SAMMEN', 'left:1240px;top:330px;font-size:34px;', 'grn') };
+}, draw(T, s) {
+  day(T);
+  rect(398, GY - 120, 2, 120, C.w); rect(392, GY - 124, 14, 6, C.g);
+  const fl = lerp(GY - 116, GY - 30, eio(prog(T, 66.2, 1.0)));
+  spr(['GGGGG', '.GGGG', '..GGG', '...GG'], 380, fl, { G: C.g }, 2);
+  const slide = eio(prog(T, 66.2, 1.0));
+  person(392, DU, { pose: slide < 1 ? MAN_UP : MAN, dy: lerp(-90, 0, slide) - (T > 68.5 ? Math.abs(Math.sin(T * 6)) * 14 : 0) });
+  LINE.slice(0, 6).forEach((x, i) => person(x - 60 + i * 6, TEAM[i], { dy: T > 68.5 ? -Math.abs(Math.sin(T * 6 + i)) * 16 : 0 }));
+  [[100, 60, C.y], [260, 40, C.p], [380, 70, C.b], [180, 90, C.g]].forEach(([x, y, c], i) => { fireworks(T, 68.6 + i * .35, x, y, c); fireworks(T, 70.2 + i * .35, x + 40, y + 10, c); });
+  pop(s.ban, T, 68.53, .3);
+  s.pts.style.opacity = T > 68.6 && T < 71 ? 1 : 0; s.pts.style.transform = `translateY(${-(T - 68.6) * 40}px)`;
+  say(T, 'At du føler begejstringen, når vi sammen gør det til en realitet.', 66.14, 70.4);
+} });
+
+// 12 — GAME OVER? → CONTINUE (omsorgen)
+S(72.1, { hud: true, talk: true, build(el) {
+  return { rep: px(el, '<< REPLAY', 'left:120px;top:150px;font-size:44px;'), go: px(el, 'GAME OVER?', 'top:300px;font-size:84px;', 'ctr red'), cont: px(el, 'CONTINUE!', 'top:300px;font-size:84px;', 'ctr grn') };
+}, draw(T, s) {
+  sky(C.sky); clouds(T); hills(0); ground(0, [262, 300]);
+  // løb, hop og fald i hullet – og spol tilbage
+  let x = 150, y = 0, pose = MAN;
+  const run = prog(T, 72.4, .9), fall = prog(T, 73.3, .7), rew = prog(T, 74.64, 1.3);
+  x = lerp(150, 270, run); if (run > 0 && run < 1) pose = Math.floor(T * 12) % 2 ? MAN_RUN : MAN;
+  if (fall > 0) { x = lerp(270, 282, fall); y = fall * fall * 34; pose = MAN_UP; }
+  if (rew > 0) { x = lerp(282, 240, eio(rew)); y = lerp(34, 0, eio(rew)); pose = MAN; fx.rewind = 1 - prog(T, 75.9, .3); }
+  person(x, DU, { pose, dy: y });
+  const come = eio(prog(T, 76.9, 1.2));
+  [[-80, 0], [-50, 1], [-20, 2], [40, 3], [70, 4], [100, 5]].forEach(([dx, i]) => {
+    const sx = dx < 0 ? -40 : 520;
+    person(lerp(sx, 240 + dx * .8 + (dx < 0 ? -14 : 14), come), TEAM[i], { flip: dx > 0, pose: come < 1 ? (Math.floor(T * 10 + i) % 2 ? MAN_RUN : MAN) : MAN });
+  });
+  for (let i = 0; i < 5; i++) { const u = T - 77.6 - i * .3; if (u > 0 && u < 2.5) spr(HEART, 200 + i * 20, GY - 40 - u * 30, { R: C.r }, 2); }
+  s.rep.style.opacity = T > 74.64 && T < 76.2 && Math.sin(T * 10) > -.3 ? 1 : 0;
+  s.go.style.opacity = T > 78.9 && T < 80.0 && Math.sin(T * 9) > -.2 ? 1 : 0;
+  pop(s.cont, T, 80.0);
+  say(T, 'Og samtidigt føler omsorgen, når vi kigger tilbage og konstaterer, at det måske virkelig var verdens dårligste idé.', 72.42, 80.6);
+} });
+
+// 13 — træneren kæmper / HARD MODE
+S(82.3, { hud: true, talk: true, build(el) { return { hm: px(el, 'HARD MODE: ON', 'top:150px;font-size:70px;', 'ctr red') }; },
+draw(T, s) {
+  day(T);
+  const push = eio(prog(T, 90.8, 1.0)), back = eio(prog(T, 89.9, .6));
+  person(160 + push * 160, DU, { pose: push > 0 && push < 1 ? (Math.floor(T * 12) % 2 ? MAN_RUN : MAN) : MAN });
+  person(215 - back * 80 + push * 160, TR, { flip: back > .5 ? false : false });
+  [0, 1, 2].forEach(i => {
+    const a = 82.8 + i * 1.2, u = T - a; if (u < 0 || T > 89.5) return;
+    const hit = 1.1, bx = u < hit ? lerp(500, 240, u / hit) : 240 + (u - hit) * 220, by = u < hit ? 0 : -Math.sin(Math.min(1, (u - hit) * 2) * Math.PI) * 30;
+    spr(BLOB, bx, GY - 18 + by, { P: C.v, W: C.w, K: C.k }, 3);
+    if (u > hit && u < hit + .15) fx.shake = .5;
+  });
+  if (T > 85 && T < 89.5) { rect(236, GY - 30, 2, 26, C.y); rect(238, GY - 32, 2, 30, C.y); }
+  blink(s.hm, T, 90.49, 2);
+  say(T, 'Som spillende træner vil jeg kæmpe for dig hver dag. Det vil til tider opleves som frustrerende, fordi jeg vil presse dig.', 82.58, 92.0);
+} });
+
+// 14 — status: LVL 99 → LEVEL UP
+S(92.9, { hud: true, talk: true, build(el) {
+  const b = mk(el, 'box', 'left:760px;top:200px;width:1010px;height:500px;padding:36px 46px;');
+  mk(b, 'px', 'position:static;font-size:40px;', 'DU &nbsp;<span class="yel">LVL 99</span>');
+  const rows = [['SKILLS', 1], ['SAMARBEJDE', 1], ['STOLT TRÆNER', 1]].map(([l]) => {
+    const r = mk(b, '', 'margin-top:34px;display:flex;align-items:center;gap:24px;font-family:"Press Start 2P";font-size:24px;');
+    mk(r, '', 'width:330px', l); const bar = mk(r, '', 'flex:1;height:30px;border:4px solid #FCFCFC;position:relative;'); const f = mk(bar, '', 'position:absolute;left:0;top:0;bottom:0;background:#5CF07C;width:0');
+    return { r, f };
+  });
+  const xr = mk(b, '', 'margin-top:44px;display:flex;align-items:center;gap:24px;font-family:"Press Start 2P";font-size:24px;');
+  mk(xr, '', 'width:330px', 'XP');
+  const xb = mk(xr, '', 'flex:1;height:36px;border:4px solid #FCFCFC;position:relative;');
+  const xf = mk(xb, '', 'position:absolute;left:0;top:0;bottom:0;background:#6CC8FC;width:0');
+  const xp = mk(xb, '', 'position:absolute;top:0;bottom:0;background:#FCD000;width:0');
+  const lidt = px(el, '+ LIDT', 'left:1560px;top:620px;font-size:30px;', 'yel');
+  const lu = px(el, 'LEVEL UP!', 'top:86px;font-size:96px;', 'ctr yel');
+  return { b, rows, xf, xp, lidt, lu };
+}, draw(T, s) {
+  sky('#1C1C4C'); stars(T);
+  spr(MAN, 40, 50, DU, 14);
+  s.rows.forEach((r, i) => { r.r.style.opacity = T > 93.4 + i * .3 ? 1 : 0; r.f.style.width = 100 * eio(prog(T, 93.5 + i * .3, .8)) + '%'; });
+  s.rows[2].r.style.opacity = T > 95.88 ? 1 : 0; s.rows[2].f.style.width = 100 * eio(prog(T, 96.0, .8)) + '%';
+  s.xf.style.width = 96 * eio(prog(T, 94.2, 1.5)) + '%';
+  s.xp.style.left = '96%'; s.xp.style.width = 10 * eio(prog(T, 105.34, .5)) + '%';
+  pop(s.lidt, T, 105.4);
+  if (T > 106.16) { blink(s.lu, T, 106.16, 3); for (let i = 0; i < 8; i++) fireworks(T, 106.2 + i * .12, 60 + i * 50, 60 + (i % 3) * 30, [C.y, C.p, C.b, C.g][i % 4], 16); } else s.lu.style.opacity = 0;
+  say(T, 'Du er allerede mega god i dag, og jeg er stolt af at have dig på holdet. Men jeg har en naiv tiltro til, at du faktisk kan blive lidt bedre.', 93.23, 106.8);
+} });
+
+// 15 — GAME SAVED
+S(107.5, { hud: true, talk: true, build(el) { return { t: px(el, 'GAME SAVED!', 'top:500px;font-size:64px;', 'ctr grn') }; },
+draw(T, s) {
+  sky(C.night); stars(T);
+  spr(FLOPPY, 216, 40 + Math.sin(T * 3) * 3, { B: '#2C5CFC', W: C.w, G: C.gr, K: C.k }, 4);
+  blink(s.t, T, 108.2, 1.5);
+  say(T, 'Uanset hvornår du læser det her.', 107.76, 110.0);
+} });
+
+// 16 — NY QUEST
+S(111.7, { hud: true, talk: true, build(el) { return { t: px(el, 'NY QUEST!', 'top:200px;font-size:90px;', 'ctr yel') }; },
+draw(T, s) {
+  day(T); lineup(T); person(430, TR);
+  rect(416, GY - 66, 30, 18, '#FCE4A0'); rect(414, GY - 68, 34, 3, '#C8A050'); rect(414, GY - 49, 34, 3, '#C8A050');
+  pop(s.t, T, 112.0);
+  say(T, 'Det eneste jeg kræver tilbage er:', 112.02, 114.6);
+} });
+
+// 17 — quest-log
+S(115.6, { hud: true, build(el) {
+  const b = mk(el, 'box', 'left:360px;top:170px;width:1200px;height:700px;padding:50px 70px;');
+  mk(b, 'px', 'position:static;font-size:40px;color:#FCD000;margin-bottom:40px', 'QUEST-LOG');
+  const rows = ['VÆR ÅBEN', 'VÆR MODIG', 'HA’ DET SJOVT'].map(t => {
+    const r = mk(b, '', 'display:flex;align-items:center;gap:40px;margin-top:44px;font-family:"VT323";font-size:110px;line-height:1;');
+    const c = mk(r, '', 'width:76px;height:76px;border:6px solid #FCFCFC;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#5CF07C;font-size:46px;font-family:"Press Start 2P";');
+    mk(r, '', '', t); return { r, c };
+  });
+  return { rows };
+}, draw(T, s) {
+  sky('#1C1C4C'); stars(T);
+  [115.85, 117.22, 119.41].forEach((a, i) => {
+    const r = s.rows[i]; r.r.style.opacity = T > a - .25 ? 1 : 0;
+    r.c.textContent = T > a + .4 ? 'X' : ''; if (T > a + .4) r.c.style.transform = `scale(${eback(prog(T, a + .4, .25))})`;
+    fireworks(T, a + .4, 120, 76 + i * 37, C.y, 12);
+  });
+} });
+
+// 18 — tak / credits
+S(121.7, { fadeOut: 2.4, build(el) {
+  const a = mk(el, 'vt ctr', 'position:absolute;top:150px;font-size:76px;');
+  const t = mk(el, 'px ctr', 'top:290px;font-size:64px;line-height:1.6;');
+  const v = mk(t, '', 'display:inline-block', 'VERDENS&nbsp;'), m = mk(t, 'yel', 'display:inline-block', '[FORMENTLIG]'); mk(t, '', '', ''); const b = mk(t, '', 'display:inline-block', 'BEDSTE HOLD');
+  return { a, v, m, b };
+}, draw(T, s) {
+  sky(C.night); stars(T); ground(0);
+  LINE.forEach((x, i) => {
+    const h = T > 128.3 ? Math.abs(Math.sin(T * 6 + i)) * 18 : 0;
+    if (i === 3) person(x, DU, { dy: -h }); else person(x, TEAM[i > 3 ? i - 1 : i], { dy: -h });
+  });
+  person(430, TR, { dy: T > 128.3 ? -Math.abs(Math.sin(T * 6 + 9)) * 18 : 0 });
+  [[90, 50, C.y], [240, 30, C.p], [380, 55, C.b], [160, 70, C.g], [320, 40, C.y]].forEach(([x, y, c], i) => { for (let k = 0; k < 4; k++) fireworks(T, 128.3 + i * .4 + k * 1.3, x + k * 13 % 40, y, c, 22); });
+  type(s.a, T, 122.71, 125.6, 'Tak for at være med til at gøre os til');
+  pop(s.v, T, 125.7); pop(s.m, T, 126.48, .35); pop(s.b, T, 128.23);
+} });
+
+scenes.forEach((sc, i) => sc.dur = (i + 1 < scenes.length ? scenes[i + 1].start : AUDIO_END) - sc.start);
+E.run({ scenes, stage, layer, ctx, audio: 'audio/mix-v5.mp3' });
+</script>
+</body>
+</html>

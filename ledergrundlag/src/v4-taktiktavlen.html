@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledergrundlag – Taktiktavlen</title>
+<style>
+  @font-face { font-family: "Kalam"; src: url(fonts/Kalam-400.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "Kalam"; src: url(fonts/Kalam-700.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #stage {
+    width: 1920px; height: 1080px; flex: none; position: relative; overflow: hidden; transform-origin: center;
+    background: #4A3222; font-family: "Kalam", "Bradley Hand", cursive; color: #F3F1E7;
+  }
+  #board {
+    position: absolute; inset: 22px; border-radius: 6px; overflow: hidden;
+    background:
+      radial-gradient(ellipse 60% 50% at 28% 35%, rgba(255,255,255,.06), transparent 70%),
+      radial-gradient(ellipse 50% 40% at 75% 70%, rgba(255,255,255,.045), transparent 70%),
+      radial-gradient(ellipse at center, #2B4A3A 0%, #1E3629 60%, #14261C 100%);
+    box-shadow: inset 0 0 120px rgba(0,0,0,.55), 0 0 0 6px #3A2617;
+  }
+  #layer { position: absolute; inset: 0; }
+  .scene { position: absolute; inset: 0; display: none; filter: url(#chalk); }
+  .scene svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .tx { position: absolute; white-space: nowrap; line-height: 1.1; font-weight: 700; }
+  .ln { display: block; width: fit-content; white-space: nowrap; }
+  .tx.c .ln { margin: 0 auto; }
+  .y { color: #F7D774; } .p { color: #F4A3B5; } .b { color: #9FD3F2; }
+  .wd { display: inline-block; }
+  .mb { position: relative; display: inline-block; transform: translateY(-.32em) rotate(-6deg); font-size: .8em; }
+  .mb svg { position: absolute; left: -.1em; bottom: -.66em; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <svg width="0" height="0" style="position:absolute">
+    <filter id="chalk" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="1" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3.5" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feComponentTransfer in="n" result="m"><feFuncA type="discrete" tableValues="0 .55 1 1 1 1 1"/></feComponentTransfer>
+      <feComposite in="d" in2="m" operator="in"/>
+    </filter>
+  </svg>
+  <div id="board"><svg id="pitch" width="1876" height="1036" style="position:absolute;inset:0;filter:url(#chalk);opacity:.13"></svg><canvas id="cv" width="1920" height="1080" style="position:absolute;left:-22px;top:-22px"></canvas><div id="layer"></div></div>
+</div></div>
+<script src="engine.js"></script>
+<script>
+const { clamp, prog, lerp, eo, eio, eback, rng, mk, svg, TAU } = E;
+const stage = document.getElementById('stage'), layer = document.getElementById('layer');
+const ctx = document.getElementById('cv').getContext('2d');
+const W = '#F3F1E7', Y = '#F7D774', P = '#F4A3B5', B = '#9FD3F2';
+const AUDIO_END = 134.5;
+
+// Banen i baggrunden (koordinater i tavlens system: 1876 × 1036)
+(() => {
+  const p = document.getElementById('pitch');
+  const st = { fill: 'none', stroke: W, 'stroke-width': 5 };
+  svg(p, 'rect', { x: 70, y: 60, width: 1736, height: 916, ...st });
+  svg(p, 'line', { x1: 938, y1: 60, x2: 938, y2: 976, ...st });
+  svg(p, 'circle', { cx: 938, cy: 518, r: 150, ...st });
+  svg(p, 'rect', { x: 70, y: 298, width: 230, height: 440, ...st });
+  svg(p, 'rect', { x: 1576, y: 298, width: 230, height: 440, ...st });
+  svg(p, 'rect', { x: 70, y: 418, width: 80, height: 200, ...st });
+  svg(p, 'rect', { x: 1726, y: 418, width: 80, height: 200, ...st });
+})();
+
+// ---------- kridt-byggeklodser (koordinater relativt til tavlen: x-22, y-22) ----------
+function sv(el) { return svg(el, 'svg', { width: 1876, height: 1036 }); }
+function tx(el, { x, y, size, lines, cls = '', rot = 0, c = false, w = 0 }) {
+  const d = mk(el, 'tx ' + (c ? 'c ' : '') + cls, `left:${c ? x - (w || 1700) / 2 : x}px;top:${y}px;font-size:${size}px;${c ? `width:${w || 1700}px;` : ''}transform:rotate(${rot}deg);`);
+  return { d, ls: lines.map(l => mk(d, 'ln', '', l)) };
+}
+function clip(el, p) { el.style.clipPath = p >= 1 ? 'none' : `inset(-40% ${(1 - p) * 100}% -40% -4%)`; el.style.opacity = p > 0 ? 1 : 0; }
+// skriv linjer frem i talens tempo: fra 'at' til 'to' (absolutte sekunder)
+function write(ls, T, at, to) {
+  const total = ls.reduce((n, l) => n + l.textContent.length, 0);
+  let s = at;
+  ls.forEach(l => { const d = (to - at) * l.textContent.length / total; clip(l, (T - s) / d); s += d; });
+}
+function path(g, d, col = W, w = 7) {
+  return svg(g, 'path', { d, fill: 'none', stroke: col, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+}
+function draw(p, T, at, d) {
+  if (!p._L) p._L = p.getTotalLength();
+  p.style.strokeDasharray = p._L + ' ' + p._L;
+  p.style.strokeDashoffset = p._L * (1 - eo(prog(T, at, d)));
+}
+// håndtegnet cirkel (lidt skæv, med overlap) + evt. bogstav
+function O(g, cx, cy, r = 34, col = W, label = '') {
+  const gg = svg(g, 'g', {});
+  const pts = [];
+  for (let i = 0; i <= 26; i++) {
+    const a = -1.9 + i / 24 * TAU, rr = r * (1 + .05 * Math.sin(i * 1.7));
+    pts.push(`${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`);
+  }
+  const c = path(gg, 'M ' + pts.join(' L '), col, 6);
+  let t = null;
+  if (label) { t = svg(gg, 'text', { x: cx, y: cy + r * .36, 'text-anchor': 'middle', fill: col, 'font-size': r * 1.0, 'font-weight': 700, 'font-family': 'Kalam' }); t.textContent = label; }
+  return { g: gg, c, t, cx, cy };
+}
+function drawO(o, T, at, d = .45) { draw(o.c, T, at, d); if (o.t) o.t.style.opacity = clamp((T - at - d * .6) / .2); }
+function X(g, cx, cy, s = 26, col = W) { return path(g, `M ${cx - s} ${cy - s} L ${cx + s} ${cy + s} M ${cx + s} ${cy - s} L ${cx - s} ${cy + s}`, col, 7); }
+// pil som kvadratisk kurve med pilespids
+function arrow(g, x1, y1, qx, qy, x2, y2, col = W, w = 6, dash = false) {
+  const gg = svg(g, 'g', {});
+  const a = Math.atan2(y2 - qy, x2 - qx), h = 26;
+  const body = path(gg, `M ${x1} ${y1} Q ${qx} ${qy} ${x2} ${y2}`, col, w);
+  if (dash) body.setAttribute('stroke-dasharray', '14 16');
+  const head = path(gg, `M ${x2 - h * Math.cos(a - .5)} ${y2 - h * Math.sin(a - .5)} L ${x2} ${y2} L ${x2 - h * Math.cos(a + .5)} ${y2 - h * Math.sin(a + .5)}`, col, w);
+  return { body, head, dash };
+}
+function drawArrow(ar, T, at, d = .5) {
+  if (ar.dash) { const p = eo(prog(T, at, d)); ar.body.style.opacity = p > 0 ? 1 : 0; ar.body.style.clipPath = p >= 1 ? 'none' : `inset(-50% ${100 - p * 100}% -50% -5%)`; }
+  else draw(ar.body, T, at, d);
+  draw(ar.head, T, at + d, .15);
+}
+function move(o, dx, dy) { o.g.setAttribute('transform', `translate(${dx} ${dy})`); }
+
+// kridtstøv (canvas)
+const DUST = (() => { const r = rng(3); return Array.from({ length: 120 }, () => ({ a: r() * TAU, v: 200 + r() * 700, s: 1 + r() * 3.5 })); })();
+function dust(T, at, cx, cy) {
+  const b = T - at; if (b < 0 || b > 2.2) return;
+  DUST.forEach(p => {
+    const k = (1 - Math.exp(-b * 3)) / 3;
+    ctx.globalAlpha = clamp(1 - b / 2.2) * .8 * E.G.alpha; ctx.fillStyle = W;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(p.a) * p.v * k, cy + Math.sin(p.a) * p.v * k * .7 + 60 * b * b, p.s, 0, TAU); ctx.fill();
+  });
+}
+
+// ---------- scener (absolutte tider fra talen) ----------
+const scenes = [];
+function S(start, def) {
+  scenes.push(Object.assign({ start, fadeIn: .35, fadeOut: .35 }, def, {
+    render(lt, s, out) { def.draw(start + lt, s, out); }
+  }));
+}
+const FORM = [[740, 420], [938, 380], [1136, 420], [680, 560], [1196, 560], [820, 680], [1056, 680]];
+
+// 1 — Hej
+S(0, { fadeIn: .6, build(el) {
+  const t = tx(el, { x: 938, y: 330, size: 280, lines: ['Hej :)'], c: true });
+  const g = sv(el); const u = path(g, 'M 700 690 Q 940 660 1180 700', Y, 9);
+  return { t, u };
+}, draw(T, s) { write(s.t.ls, T, .95, 1.5); draw(s.u, T, 1.4, .4); } });
+
+// 2 — verdens (måske) bedste hold
+S(1.9, { build(el) {
+  const top = tx(el, { x: 938, y: 90, size: 72, lines: ['Jeg er glad og stolt over at have dig på'], c: true });
+  const g = sv(el);
+  const team = FORM.map(([x, y]) => O(g, x, y));
+  const du = O(g, 938, 540, 40, P, 'DU');
+  const line = mk(el, 'tx c', 'left:88px;top:800px;width:1700px;font-size:120px;text-align:center;');
+  const v = mk(line, 'wd', '', 'verdens');
+  line.appendChild(document.createTextNode(' '));
+  const mb = mk(line, 'mb', '', '<svg width="56" height="44" viewBox="-28 -22 56 44"><path d="M -18 14 L 0 -14 L 18 14" fill="none" stroke="#F7D774" stroke-width="7" stroke-linecap="round"/></svg><span class="y">måske</span>');
+  line.appendChild(document.createTextNode(' '));
+  const b = mk(line, 'wd', '', 'bedste hold.');
+  return { top, team, du, v, mb, caret: mb.querySelector('path'), may: mb.querySelector('span'), b };
+}, draw(T, s) {
+  write(s.top.ls, T, 2.1, 4.4);
+  s.team.forEach((o, i) => drawO(o, T, 2.2 + i * .18));
+  drawO(s.du, T, 3.6, .5);
+  clip(s.v, (T - 4.5) / .6);
+  draw(s.caret, T, 5.5, .25); clip(s.may, (T - 5.62) / .6);
+  clip(s.b, (T - 7.0) / 1.0);
+} });
+
+// 3 — spillende træner
+S(10.4, { build(el) {
+  const t = tx(el, { x: 938, y: 70, size: 96, lines: ['Jeg er <span class="y">spillende træner</span> på holdet!'], c: true });
+  const g = sv(el);
+  const team = FORM.map(([x, y]) => O(g, x, y)); const du = O(g, 938, 540, 40, P, 'DU');
+  const tr = O(g, 1560, 820, 40, Y, 'T');
+  const ar = arrow(g, 1520, 790, 1300, 820, 1000, 760, Y, 6);
+  return { t, team, du, tr, ar };
+}, draw(T, s) {
+  s.team.forEach(o => drawO(o, 99, 0)); drawO(s.du, 99, 0);
+  write(s.t.ls, T, 10.74, 13.0);
+  drawO(s.tr, T, 11.2, .45);
+  drawArrow(s.ar, T, 11.8, .7);
+  const m = eio(prog(T, 12.8, 1.2)); move(s.tr, lerp(0, -560, m), lerp(0, -60, m));
+  s.ar.body.parentNode.style.opacity = 1 - prog(T, 13.4, .5);
+} });
+
+// 4 — ærlig
+S(14.9, { build(el) {
+  const t = tx(el, { x: 938, y: 360, size: 110, lines: ['Og jeg vil gerne starte', 'med at være <span class="y">ærlig</span>.'], c: true });
+  const g = sv(el); const u = path(g, 'M 1020 610 Q 1130 630 1250 600', Y, 8);
+  return { t, u };
+}, draw(T, s) { write(s.t.ls, T, 15.2, 17.2); draw(s.u, T, 17.0, .4); } });
+
+// 5 — kaos
+const CHAOS = (() => {
+  const r = rng(19), out = [];
+  for (let i = 0; i < 18; i++) {
+    const x1 = 900 + r() * 900, y1 = 120 + r() * 820, x2 = 900 + r() * 900, y2 = 120 + r() * 820;
+    out.push({ x1, y1, qx: (x1 + x2) / 2 + (r() - .5) * 500, qy: (y1 + y2) / 2 + (r() - .5) * 500, x2, y2, col: [W, Y, P, B][Math.floor(r() * 4)], at: 18.6 + i * .32 });
+  }
+  return out;
+})();
+const BULBS = [[1180, 220], [1650, 360], [1420, 780], [1000, 560], [1760, 860], [1260, 470]];
+S(17.8, { build(el) {
+  const g = sv(el);
+  const arrows = CHAOS.map(c => arrow(g, c.x1, c.y1, c.qx, c.qy, c.x2, c.y2, c.col, 5));
+  const marks = CHAOS.slice(0, 10).map((c, i) => i % 2 ? X(g, c.x1, c.y1, 20, c.col) : O(g, c.x1, c.y1, 24, c.col).c);
+  const bulbs = BULBS.map(([x, y]) => path(g, `M ${x - 28} ${y} A 40 40 0 1 1 ${x + 28} ${y} Q ${x + 16} ${y + 24} ${x + 16} ${y + 44} L ${x - 16} ${y + 44} Q ${x - 16} ${y + 24} ${x - 28} ${y} M ${x - 14} ${y + 58} L ${x + 14} ${y + 58} M ${x} ${y - 70} L ${x} ${y - 92} M ${x + 52} ${y - 40} L ${x + 70} ${y - 54} M ${x - 52} ${y - 40} L ${x - 70} ${y - 54}`, Y, 6));
+  const t = tx(el, { x: 110, y: 120, size: 92, lines: ['Du vil opleve'] });
+  const k = tx(el, { x: 100, y: 220, size: 230, lines: ['KAOS'], cls: 'y', rot: -4 });
+  const sub = tx(el, { x: 110, y: 560, size: 62, lines: ['og blive frustreret over', 'min manglende struktur,', 'samt mine mange <span class="y">idéer</span>.'] });
+  return { arrows, marks, bulbs, t, k, sub };
+}, draw(T, s) {
+  write(s.t.ls, T, 18.07, 19.1); write(s.k.ls, T, 19.1, 19.9);
+  s.k.d.style.transform = `rotate(${-4 + Math.sin(T * 9) * 1.5 * prog(T, 20, .3)}deg)`;
+  s.arrows.forEach((a, i) => drawArrow(a, T, CHAOS[i].at, .35));
+  s.marks.forEach((m, i) => draw(m, T, 19.4 + i * .35, .25));
+  write(s.sub.ls, T, 20.0, 24.6);
+  s.bulbs.forEach((b, i) => draw(b, T, 23.6 + i * .22, .45));
+} });
+
+// 6 — 200 km/t
+S(25.6, { build(el) {
+  const top = tx(el, { x: 938, y: 70, size: 72, lines: ['Indimellem vil det føles som at køre'], c: true });
+  const big = tx(el, { x: 938, y: 300, size: 250, lines: ['200 km/t'], cls: 'y', c: true });
+  const bot = tx(el, { x: 938, y: 800, size: 72, lines: ['på motorvejen bare for at følge med.'], c: true });
+  const g = sv(el);
+  const streaks = [250, 270, 610, 640, 670].map((y, i) => path(g, `M ${1700 - i * 50} ${y} L ${240 + i * 70} ${y + (i % 2 ? 4 : -4)}`, W, 5));
+  const runner = O(g, 1700, 700, 34, P, 'DU'); const tired = O(g, 180, 720, 30, P, 'DU');
+  const sweat = path(g, 'M 230 650 q 8 -14 0 -26 M 250 668 q 8 -14 0 -24', B, 5);
+  return { top, big, bot, streaks, runner, tired, sweat };
+}, draw(T, s) {
+  write(s.top.ls, T, 25.93, 27.7);
+  s.streaks.forEach((p, i) => draw(p, T, 27.6 + i * .06, .35));
+  write(s.big.ls, T, 27.8, 28.6);
+  write(s.bot.ls, T, 29.4, 31.6);
+  drawO(s.runner, T, 26.2); move(s.runner, -lerp(0, 1500, eio(prog(T, 27.6, .7))), 0);
+  s.runner.g.style.opacity = 1 - prog(T, 28.2, .3);
+  drawO(s.tired, T, 32.0); draw(s.sweat, T, 32.5, .4);
+} });
+
+// 7 — hyperfokuseret / mangle det totalt
+S(34.0, { build(el) {
+  const a = tx(el, { x: 110, y: 110, size: 64, lines: ['Du vil nok også opleve, at jeg', 'kan have en tendens til at være'] });
+  const b = tx(el, { x: 110, y: 290, size: 128, lines: ['hyperfokuseret'], cls: 'y' });
+  const c = tx(el, { x: 110, y: 560, size: 84, lines: ['– eller mangle det totalt.'], cls: 'p', rot: -2 });
+  const g = sv(el);
+  const target = O(g, 1460, 470, 36);
+  const rings = [90, 150, 220, 300].map(r => O(g, 1460, 470, r, Y).c);
+  const scrib = path(g, 'M 1180 260 C 1700 300 1250 420 1720 520 S 1150 600 1650 700 S 1300 820 1760 860 M 1250 820 l 30 -60 M 1700 230 l -20 50', P, 6);
+  const q = [[1240, 250], [1700, 640], [1300, 760]].map(([x, y]) => tx(el, { x, y, size: 110, lines: ['?'], cls: 'p' }));
+  return { a, b, c, target, rings, scrib, q };
+}, draw(T, s) {
+  write(s.a.ls, T, 34.32, 37.6); write(s.b.ls, T, 37.7, 39.6);
+  drawO(s.target, T, 36.8);
+  s.rings.forEach((r, i) => { draw(r, T, 38.0 + (3 - i) * .25, .4); r.style.opacity = 1 - prog(T, 41.0, .4); });
+  write(s.c.ls, T, 41.22, 43.0);
+  draw(s.scrib, T, 41.4, 1.2);
+  s.q.forEach((q, i) => write(q.ls, T, 42.0 + i * .3, 42.25 + i * .3));
+} });
+
+// 8 — Jeg beklager
+S(43.3, { build(el) {
+  const a = tx(el, { x: 938, y: 280, size: 170, lines: ['Jeg beklager.'], c: true });
+  const b = tx(el, { x: 938, y: 520, size: 72, lines: ['Jeg aner simpelthen ikke,', 'hvordan jeg fixer det.'], c: true });
+  const q = tx(el, { x: 938, y: 760, size: 120, lines: ['?'], cls: 'p', c: true });
+  return { a, b, q };
+}, draw(T, s) { write(s.a.ls, T, 43.56, 44.6); write(s.b.ls, T, 44.7, 48.2); write(s.q.ls, T, 47.6, 47.9); } });
+
+// 9 — MEN
+S(50.2, { fadeIn: 0, fadeOut: .2, build(el) {
+  return { m: tx(el, { x: 938, y: 210, size: 480, lines: ['MEN'], c: true }) };
+}, draw(T, s) {
+  write(s.m.ls, T, 50.42, 50.75);
+  const sh = Math.exp(-(T - 50.75) * 6) * 14 * (T > 50.75);
+  s.m.d.style.transform = `translate(${Math.sin(T * 80) * sh}px,${Math.cos(T * 60) * sh}px)`;
+  dust(T, 50.75, 960, 560);
+} });
+
+// 10 — række hånden op
+S(52.1, { build(el) {
+  const t = tx(el, { x: 938, y: 60, size: 58, lines: ['Kan du udholde det, vil jeg gøre alt, jeg overhovedet kan for,', 'at du føler, det er helt naturligt at række hånden op og sige:'], c: true });
+  const g = sv(el);
+  const row = [-3, -2, -1, 1, 2, 3].map(k => O(g, 938 + k * 150, 820, 32));
+  const du = O(g, 938, 820, 38, P, 'DU');
+  const arm = path(g, 'M 966 790 L 1000 700 L 1010 630 M 990 640 q 20 -30 40 -6', P, 7);
+  const bub = path(g, 'M 600 300 Q 600 230 680 230 L 1300 230 Q 1380 230 1380 300 L 1380 470 Q 1380 540 1300 540 L 1080 540 L 1030 610 L 1010 540 L 680 540 Q 600 540 600 470 Z', Y, 6);
+  const q = tx(el, { x: 990, y: 268, size: 80, lines: ['”Jeg har muligvis', 'verdens dårligste idé.”'], c: true, w: 760 });
+  return { t, row, du, arm, bub, q };
+}, draw(T, s) {
+  write(s.t.ls, T, 52.42, 60.4);
+  s.row.forEach((o, i) => drawO(o, T, 52.6 + i * .15)); drawO(s.du, T, 53.6, .5);
+  draw(s.arm, T, 59.4, .7);
+  draw(s.bub, T, 60.6, .7);
+  write(s.q.ls, T, 61.2, 64.4);
+} });
+
+// 11 — begejstringen: vi scorer sammen
+const PASS = [[300, 760], [620, 520], [900, 780], [1180, 480], [1440, 640]];
+S(65.8, { build(el) {
+  const t = tx(el, { x: 938, y: 50, size: 92, lines: ['At du føler <span class="y">begejstringen</span>,'], c: true });
+  const b = tx(el, { x: 938, y: 880, size: 70, lines: ['når vi sammen gør det til en realitet.'], c: true });
+  const g = sv(el);
+  const goal = path(g, 'M 1806 380 L 1700 380 L 1700 680 L 1806 680 M 1720 400 L 1806 400 M 1720 440 L 1806 440 M 1720 480 L 1806 480 M 1720 520 L 1806 520 M 1720 560 L 1806 560 M 1720 600 L 1806 600 M 1720 640 L 1806 640', W, 5);
+  const players = PASS.map(([x, y], i) => O(g, x, y, 32, i === 2 ? P : W, i === 2 ? 'DU' : ''));
+  const passes = PASS.slice(1).map(([x, y], i) => { const [x0, y0] = PASS[i]; return arrow(g, x0 + 30, y0 - 10, (x0 + x) / 2, Math.min(y0, y) - 120, x - 36, y - 14, W, 5, true); });
+  const shot = arrow(g, 1480, 630, 1600, 520, 1740, 540, Y, 7);
+  const burst = path(g, [0, 1, 2, 3, 4, 5, 6, 7].map(k => { const a = k / 8 * TAU; return `M ${1750 + Math.cos(a) * 80} ${530 + Math.sin(a) * 80} L ${1750 + Math.cos(a) * 150} ${530 + Math.sin(a) * 150}`; }).join(' '), Y, 7);
+  const gl = tx(el, { x: 1280, y: 180, size: 140, lines: ['MÅL!'], cls: 'y', rot: -8 });
+  return { t, b, goal, players, passes, shot, burst, gl };
+}, draw(T, s) {
+  write(s.t.ls, T, 66.14, 68.0);
+  draw(s.goal, T, 66.2, .7);
+  s.players.forEach((o, i) => drawO(o, T, 66.3 + i * .15));
+  s.passes.forEach((a, i) => drawArrow(a, T, 67.0 + i * .45, .4));
+  drawArrow(s.shot, T, 68.9, .35);
+  draw(s.burst, T, 69.3, .3); write(s.gl.ls, T, 69.3, 69.7);
+  write(s.b.ls, T, 68.53, 70.4);
+} });
+
+// 12 — omsorgen, når idéen var den dårligste
+S(72.1, { build(el) {
+  const t = tx(el, { x: 938, y: 50, size: 88, lines: ['Og samtidigt føler <span class="p">omsorgen</span>,'], c: true });
+  const b = tx(el, { x: 938, y: 820, size: 60, lines: ['når vi kigger tilbage og konstaterer, at det', 'måske virkelig var verdens dårligste idé.'], c: true });
+  const g = sv(el);
+  const goal = path(g, 'M 1806 380 L 1700 380 L 1700 680 L 1806 680', W, 5);
+  const du = O(g, 1180, 520, 38, P, 'DU');
+  const shot = arrow(g, 1220, 500, 1500, 300, 1720, 200, W, 6);
+  const miss = X(g, 1740, 190, 34, P);
+  const rew = arrow(g, 1560, 400, 1400, 230, 1250, 400, B, 5);
+  const rewTxt = tx(el, { x: 1290, y: 210, size: 48, lines: ['kig tilbage'], cls: 'b', rot: -6 });
+  const mates = [[700, 380], [640, 620], [900, 740], [1500, 720], [1420, 420]].map(([x, y]) => ({ o: O(g, x, y, 30), x, y }));
+  const hearts = [[1120, 400], [1250, 390]].map(([x, y]) => path(g, `M ${x} ${y} c -14 -22 -44 -10 -30 12 l 30 26 l 30 -26 c 14 -22 -16 -34 -30 -12 z`, P, 5));
+  return { t, b, goal, du, shot, miss, rew, rewTxt, mates, hearts };
+}, draw(T, s) {
+  write(s.t.ls, T, 72.42, 74.1);
+  draw(s.goal, T, 72.2, .4); drawO(s.du, T, 72.3);
+  drawArrow(s.shot, T, 73.0, .5);
+  drawArrow(s.rew, T, 74.64, .7); write(s.rewTxt.ls, T, 75.0, 75.8);
+  s.mates.forEach((m, i) => {
+    drawO(m.o, T, 75.2 + i * .1);
+    const c = eio(prog(T, 76.4 + i * .08, 1.4));
+    const ang = Math.atan2(m.y - 520, m.x - 1180);
+    move(m.o, lerp(0, 1180 + Math.cos(ang) * 110 - m.x, c), lerp(0, 520 + Math.sin(ang) * 110 - m.y, c));
+  });
+  s.hearts.forEach((h, i) => draw(h, T, 77.8 + i * .2, .5));
+  write(s.b.ls, T, 76.96, 80.6);
+  draw(s.miss, T, 79.6, .35);
+} });
+
+// 13 — kæmpe for dig / presse dig
+S(82.3, { build(el) {
+  const t = tx(el, { x: 938, y: 50, size: 82, lines: ['Som spillende træner vil jeg', '<span class="y">kæmpe for dig</span> hver dag.'], c: true });
+  const b = tx(el, { x: 938, y: 820, size: 64, lines: ['Det vil til tider opleves som frustrerende,', 'fordi jeg vil <span class="p">presse dig</span>.'], c: true });
+  const g = sv(el);
+  const du = O(g, 760, 560, 40, P, 'DU'); const tr = O(g, 940, 560, 40, Y, 'T');
+  const shield = path(g, 'M 1010 470 Q 1060 560 1010 650', Y, 8);
+  const xs = [[1500, 420], [1580, 580], [1480, 720]].map(([x, y]) => ({ p: X(g, x, y, 26, W), x, y }));
+  const push = arrow(g, 560, 560, 620, 520, 690, 545, Y, 8);
+  return { t, b, du, tr, shield, xs, push };
+}, draw(T, s) {
+  write(s.t.ls, T, 82.58, 85.8);
+  drawO(s.du, T, 82.6); drawO(s.tr, T, 82.9);
+  s.xs.forEach((x, i) => {
+    draw(x.p, T, 83.2 + i * .15, .3);
+    const f = prog(T, 84.0 + i * .2, 1.0), back = prog(T, 85.0 + i * .2, .6);
+    x.p.setAttribute('transform', `translate(${-lerp(0, 380, eio(f)) + 260 * eo(back)} 0)`);
+  });
+  draw(s.shield, T, 84.8, .3); s.shield.style.opacity = 1 - prog(T, 89.6, .3);
+  write(s.b.ls, T, 86.66, 92.0);
+  const pushed = eio(prog(T, 90.8, .8));
+  move(s.tr, -360 * eio(prog(T, 89.8, .6)) + 300 * pushed, 0); move(s.du, 300 * pushed, 0);
+  drawArrow(s.push, T, 90.4, .3); s.push.body.parentNode.style.opacity = 1 - prog(T, 91.6, .4);
+} });
+
+// 14 — mega god / lidt bedre
+S(92.9, { build(el) {
+  const a = tx(el, { x: 100, y: 90, size: 80, lines: ['Du er allerede <span class="y">mega god</span> i dag,', 'og jeg er stolt af at have dig', 'på holdet.'] });
+  const b = tx(el, { x: 100, y: 520, size: 70, lines: ['Men jeg har en naiv tiltro til,', 'at du faktisk kan blive'] });
+  const c = tx(el, { x: 100, y: 700, size: 150, lines: ['<span class="y">lidt</span> bedre.'] });
+  const g = sv(el);
+  const axes = path(g, 'M 1350 220 L 1350 900 L 1760 900', W, 6);
+  const bar = path(g, 'M 1440 900 L 1440 360 L 1640 360 L 1640 900 M 1440 860 L 1640 700 M 1440 760 L 1640 600 M 1440 660 L 1640 500 M 1440 560 L 1640 400 M 1440 460 L 1560 360', W, 6);
+  const plus = path(g, 'M 1440 360 L 1440 290 L 1640 290 L 1640 360', Y, 7);
+  const lab = tx(el, { x: 1400, y: 930, size: 48, lines: ['i dag'] });
+  const plusLab = tx(el, { x: 1665, y: 250, size: 60, lines: ['+ lidt'], cls: 'y', rot: -6 });
+  return { a, b, c, axes, bar, plus, lab, plusLab };
+}, draw(T, s) {
+  write(s.a.ls, T, 93.23, 98.5);
+  draw(s.axes, T, 93.6, .6); draw(s.bar, T, 94.2, 1.4); write(s.lab.ls, T, 94.6, 95.0);
+  write(s.b.ls, T, 100.89, 104.6);
+  write(s.c.ls, T, 105.34, 106.6);
+  draw(s.plus, T, 105.3, .5); write(s.plusLab.ls, T, 105.6, 106.1);
+} });
+
+// 15 — uanset hvornår
+S(107.5, { build(el) {
+  const t = tx(el, { x: 938, y: 330, size: 120, lines: ['Uanset hvornår du', 'læser det her.'], c: true });
+  const g = sv(el); const clock = path(g, 'M 938 830 m -70 0 a 70 70 0 1 0 140 0 a 70 70 0 1 0 -140 0 M 938 830 L 938 785 M 938 830 L 975 850', Y, 6);
+  return { t, clock };
+}, draw(T, s) { write(s.t.ls, T, 107.76, 110.0); draw(s.clock, T, 108.4, 1.0); } });
+
+// 16 — det eneste jeg kræver
+S(111.7, { build(el) {
+  return { t: tx(el, { x: 938, y: 380, size: 130, lines: ['Det eneste jeg kræver', 'tilbage er:'], c: true }) };
+}, draw(T, s) { write(s.t.ls, T, 112.02, 114.6); } });
+
+// 17 — åben, modig, ha' det sjovt
+S(115.6, { build(el) {
+  const g = sv(el);
+  const rows = [['Vær <span class="y">åben</span>.', 115.85], ['Vær <span class="y">modig</span>.', 117.22], ['Ha’ det <span class="y">sjovt</span>. :)', 119.41]].map(([txt, at], i) => {
+    const y = 210 + i * 230;
+    const box = path(g, `M 380 ${y + 40} L 470 ${y + 34} L 474 ${y + 124} L 384 ${y + 128} Z`, W, 6);
+    const chk = path(g, `M 396 ${y + 80} L 424 ${y + 112} L 500 ${y + 10}`, Y, 9);
+    return { box, chk, t: tx(el, { x: 540, y: y + 6, size: 130, lines: [txt] }), at };
+  });
+  return { rows };
+}, draw(T, s) {
+  s.rows.forEach(r => { draw(r.box, T, 115.7, .5); write(r.t.ls, T, r.at, r.at + 1.0); draw(r.chk, T, r.at + .5, .35); });
+} });
+
+// 18 — tak: verdens (formentlig) bedste hold
+S(121.7, { fadeOut: 2.3, build(el) {
+  const top = tx(el, { x: 938, y: 60, size: 76, lines: ['Tak for at være med til at gøre os til'], c: true });
+  const g = sv(el);
+  const team = FORM.map(([x, y]) => O(g, x, y - 20)); const du = O(g, 938, 520, 40, P, 'DU'); const tr = O(g, 938, 690, 40, Y, 'T');
+  const line = mk(el, 'tx c', 'left:88px;top:820px;width:1700px;font-size:124px;text-align:center;');
+  const v = mk(line, 'wd', '', 'verdens');
+  line.appendChild(document.createTextNode(' '));
+  const mb = mk(line, 'mb', '', '<svg width="56" height="44" viewBox="-28 -22 56 44"><path d="M -18 14 L 0 -14 L 18 14" fill="none" stroke="#F7D774" stroke-width="7" stroke-linecap="round"/></svg><span class="y">formentlig</span>');
+  line.appendChild(document.createTextNode(' '));
+  const b = mk(line, 'wd', '', 'bedste hold.');
+  return { top, team, du, tr, v, caret: mb.querySelector('path'), may: mb.querySelector('span'), b };
+}, draw(T, s) {
+  s.team.forEach((o, i) => drawO(o, T, 121.9 + i * .15)); drawO(s.du, T, 123.0); drawO(s.tr, T, 123.3);
+  write(s.top.ls, T, 122.71, 125.4);
+  clip(s.v, (T - 125.5) / .7);
+  draw(s.caret, T, 126.3, .25); clip(s.may, (T - 126.48) / .8);
+  clip(s.b, (T - 128.2) / .7);
+} });
+
+// varigheder ud fra starttiderne
+scenes.forEach((sc, i) => sc.dur = (i + 1 < scenes.length ? scenes[i + 1].start : AUDIO_END) - sc.start);
+
+E.run({ scenes, stage, layer, ctx, audio: 'audio/mix-v4.mp3' });
+</script>
+</body>
+</html>

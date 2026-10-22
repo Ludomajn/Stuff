@@ -123,8 +123,24 @@
       scenes.forEach(sc => { sc.el = E.mk(layer, 'scene'); sc.s = sc.build(sc.el); });
       if (o.onBuilt) o.onBuilt();
       window.__ready = true;
-      if (!capture) live();
+      if (!capture) (o.audio ? player : live)();
     });
+
+    // Afspiller: tidslinjen følger lydsporet (stemme + musik)
+    function player() {
+      const a = new Audio(o.audio);
+      const ov = E.mk(document.body, '', 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font:600 30px -apple-system,"Helvetica Neue",sans-serif;cursor:pointer;z-index:10', '▶&nbsp; Klik for at afspille');
+      const toggle = () => { if (a.paused) { a.play(); ov.style.display = 'none'; } else { a.pause(); ov.innerHTML = '❚❚&nbsp; Pause – klik for at fortsætte'; ov.style.display = 'flex'; } };
+      ov.addEventListener('click', toggle);
+      a.addEventListener('ended', () => { ov.innerHTML = '↺&nbsp; Afspil igen'; ov.style.display = 'flex'; });
+      addEventListener('keydown', e => {
+        if (e.key === ' ') { e.preventDefault(); toggle(); }
+        else if (e.key === 'ArrowRight') a.currentTime = Math.min(a.duration || total, a.currentTime + 5);
+        else if (e.key === 'ArrowLeft') a.currentTime = Math.max(0, a.currentTime - 5);
+        else if (e.key === 'f' || e.key === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+      });
+      (function frame() { window.renderAt(a.currentTime); requestAnimationFrame(frame); })();
+    }
 
     // Live: hver scene spiller og holder sit slutbillede, til du går videre
     function live() {

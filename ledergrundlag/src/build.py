@@ -1,4 +1,4 @@
-"""Bygger selvstændige HTML-filer: indlejrer engine.js og fonte (base64), så filerne virker offline.
+"""Bygger selvstændige HTML-filer: indlejrer engine.js, fonte og lydspor (base64), så filerne virker offline.
 
 Brug: python3 src/build.py   (fra ledergrundlag/)
 """
@@ -7,7 +7,8 @@ from pathlib import Path
 
 SRC = Path(__file__).parent
 OUT = SRC.parent
-PAGES = {'v2-idevaeggen.html': 'v2-idevaeggen.html', 'v3-motorvejen.html': 'v3-motorvejen.html'}
+PAGES = {'v2-idevaeggen.html': 'v2-idevaeggen.html', 'v3-motorvejen.html': 'v3-motorvejen.html',
+         'v4-taktiktavlen.html': 'v4-taktiktavlen.html', 'v5-levelup.html': 'v5-levelup.html'}
 
 engine = (SRC / 'engine.js').read_text()
 for src, dst in PAGES.items():
@@ -18,5 +19,9 @@ for src, dst in PAGES.items():
     for font in (SRC / 'fonts').glob('*.woff2'):
         b64 = base64.b64encode(font.read_bytes()).decode()
         html = html.replace(f'url(fonts/{font.name})', f'url(data:font/woff2;base64,{b64})')
+    for mp3 in (SRC / 'audio').glob('*.mp3'):
+        if f'audio/{mp3.name}' in html:
+            b64 = base64.b64encode(mp3.read_bytes()).decode()
+            html = html.replace(f"'audio/{mp3.name}'", f"'data:audio/mpeg;base64,{b64}'")
     (OUT / dst).write_text(html)
     print('->', OUT / dst)
